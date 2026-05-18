@@ -96,7 +96,7 @@
     <header>
         <h1 class="brand">📝 Content Builder</h1>
         <div class="header-actions">
-            <button onclick="saveToCloud()" id="btn-cloud-save" style="background: #059669; padding: 6px 12px; font-size: 0.85rem;">☁️ 備份模板</button>
+            <button onclick="saveToCloud()" id="btn-cloud-save" style="background: #059669; padding: 6px 12px; font-size: 0.85rem;">☁️ 雲端備份(含草稿)</button>
             <button onclick="loadFromCloud()" id="btn-cloud-load" style="background: #d97706; padding: 6px 12px; font-size: 0.85rem;">📥 還原</button>
             <button onclick="clearAllLocalData()" style="background: #7f1d1d; border: 1px solid #ef4444; padding: 6px 12px; font-size: 0.85rem;">🗑️ 清空本機</button>
             <button onclick="logoutFirebase()" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 6px 12px; font-size: 0.85rem;">登出</button>
@@ -135,7 +135,7 @@
             <!-- 🔥 獨立草稿櫃管理器 -->
             <div class="draft-manager">
                 <select id="draft-selector" onchange="switchDraft(this.value)"></select>
-                <button onclick="deleteCurrentDraft()" style="background: transparent; color: #ef4444; border: 1px solid #ef4444;">🗑️ 刪除這份草稿</button>
+                <button onclick="deleteCurrentDraft()" style="background: transparent; color: #ef4444; border: 1px solid #ef4444;">🗑️ 刪除草稿</button>
             </div>
 
             <div id="dynamic-fields-container">
@@ -154,6 +154,14 @@
 </div>
 
 <script>
+    // ==========================================
+    // 輔助函式：取得正確的本地日期字串 (YYYY-MM-DD)
+    // ==========================================
+    function getLocalDateString() {
+        const d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
     // ==========================================
     // 1. Firebase 初始化
     // ==========================================
@@ -256,7 +264,7 @@
     }
 
     // ==========================================
-    // 3. 🛡️ 雲端同步 (包含時間戳防禦機制)
+    // 3. 🛡️ 雲端同步 (包含時間戳防禦機制與草稿備份)
     // ==========================================
     async function saveToCloud() {
         const btn = document.getElementById('btn-cloud-save');
@@ -270,34 +278,40 @@
             if (doc.exists && doc.data().updatedAt) {
                 const cloudTime = doc.data().updatedAt.toMillis();
                 if (cloudTime > lastSyncTime) {
-                    if(!confirm("⚠️ 警告：雲端有較新的模板版本！\n\n如果你強制上傳，將會覆蓋其他裝置(例如公司電腦)的最新修改。\n按「確定」強制覆蓋雲端，按「取消」中斷上傳。")) {
+                    if(!confirm("⚠️ 警告：雲端有較新的資料版本！\n\n如果你強制上傳，將會覆蓋其他裝置(例如公司電腦)的最新修改。\n按「確定」強制覆蓋雲端，按「取消」中斷上傳。")) {
                         return; // 使用者取消
                     }
                 }
             }
 
             btn.innerText = '☁️ 上傳中...';
-            const payload = { templates: templates, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+            // 🔥 重大修正：將 drafts 一併打包上傳
+            const payload = { 
+                templates: templates, 
+                drafts: drafts, 
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
+            };
             await db.collection("Dynamic_Templates").doc(currentUser.uid).set(payload);
             
             lastSyncTime = Date.now();
             localStorage.setItem(`blogbuilder_sync_${currentUser.uid}`, lastSyncTime.toString());
-            alert('✅ 模板已整包備份至 Firebase！');
+            alert('✅ 模板與草稿已整包備份至 Firebase！');
             
         } catch (e) { alert('上傳失敗：' + e.message); } 
         finally { btn.innerText = origText; btn.disabled = false; }
     }
 
     async function loadFromCloud() {
-        if (!confirm('⚠️ 這將覆蓋本機目前的模板。你的「草稿」不會受影響。確定還原？')) return;
+        if (!confirm('⚠️ 這將會用雲端資料覆蓋本機目前的「模板」與「草稿」。確定還原？')) return;
         
         const btn = document.getElementById('btn-cloud-load');
         const origText = btn.innerText; btn.innerText = '📥 下載中...'; btn.disabled = true;
 
         try {
             const doc = await db.collection("Dynamic_Templates").doc(currentUser.uid).get();
-            if (doc.exists && doc.data().templates) {
-                templates = doc.data().templates;
+            if (doc.exists) {
+                templates = doc.data().templates || [];
+                drafts = doc.data().drafts || []; // 🔥 重大修正：一併還原草稿
                 
                 // 更新同步時間
                 if (doc.data().updatedAt) {
@@ -307,7 +321,7 @@
 
                 saveLocal();
                 if(templates.length > 0) loadTemplate(templates[0].id); else createNewTemplate();
-                alert('📥 雲端模板還原成功！');
+                alert('📥 雲端資料 (包含草稿) 還原成功！');
             } else { alert('雲端目前沒有您的備份資料。'); }
         } catch (e) { alert('下載失敗：' + e.message); } 
         finally { btn.innerText = origText; btn.disabled = false; }
@@ -431,7 +445,10 @@
         if (confirm('確定要刪除目前的草稿嗎？')) {
             drafts = drafts.filter(d => d.id !== currentDraft.id);
             saveLocal();
-            renderDraftSelector();
+            // 刪除後強制回到「建立新草稿」狀態，避免畫面殘留
+            document.getElementById('draft-selector').value = 'new';
+            switchDraft('new'); 
+            renderDraftSelector(); 
         }
     }
 
@@ -501,10 +518,10 @@
         });
         container.innerHTML = html;
         
-        // 特殊處理：如果有 date 欄位且為空，自動帶入今天日期
+        // 特殊處理：如果有 date 欄位且為空，自動帶入今天日期 (使用修正後的在地時間)
         const dateInput = document.getElementById('input-date');
         if (dateInput && !dateInput.value) {
-            const today = new Date().toISOString().slice(0, 10);
+            const today = getLocalDateString();
             dateInput.value = today;
             updateDraftField('date', today);
         }
@@ -548,7 +565,8 @@
         const dateInput = document.getElementById('input-date');
         const titleInput = document.getElementById('input-title');
         
-        const datePart = (dateInput && dateInput.value) ? dateInput.value : new Date().toISOString().slice(0,10);
+        // 檔名日期也改用正確的本地日期
+        const datePart = (dateInput && dateInput.value) ? dateInput.value : getLocalDateString();
         let titlePart = (titleInput && titleInput.value) ? titleInput.value : 'draft';
         titlePart = titlePart.replace(/[\\/:*?"<>| ]/g, '-');
 
