@@ -104,6 +104,18 @@ code.k{font-family:var(--f-mono);background:var(--code);border:1px solid var(--l
 .mini{font-size:12px!important;padding:3px 9px!important;border-radius:99px!important;color:var(--muted)}
 .notes{margin:0;padding-left:20px;color:var(--warn);font-size:13px}
 .change .h label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.maps{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.maps .field{gap:3px}
+.maps select,.maps input{font-size:12.5px;padding:5px 7px}
+.tw{overflow-x:auto;max-height:420px;overflow-y:auto;border:1px solid var(--line);border-radius:8px}
+.tw table{border-collapse:collapse;width:100%;font-size:12.5px}
+.tw th,.tw td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top;white-space:pre-wrap}
+.tw th{position:sticky;top:0;background:var(--panel);font-weight:500;color:var(--muted);white-space:nowrap}
+.tw td.nt{color:var(--warn);min-width:160px}
+.tw td.mut{color:var(--muted);font-variant-numeric:tabular-nums}
+.rg{display:flex;flex-direction:column;gap:6px}
+.ri{display:flex;flex-direction:column;gap:4px;padding-left:8px;border-left:2px solid var(--line)}
+.ri .t{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px}
 .lib{display:flex;flex-direction:column}
 .libr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center;padding:10px 4px;border-top:1px solid var(--line);cursor:pointer}
 .libr:first-child{border-top:none}
@@ -154,6 +166,7 @@ fieldset.node legend{font-weight:700;padding:0 6px}
       <div class="panel-h">
         <div class="tabs" role="tablist">
           <button class="tab" role="tab" data-tab="content" aria-selected="true">內容</button>
+          <button class="tab" role="tab" data-tab="roster" aria-selected="false">名單</button>
           <button class="tab" role="tab" data-tab="nodes" aria-selected="false">CMS 節點</button>
           <button class="tab" role="tab" data-tab="images" aria-selected="false">圖片</button>
           <button class="tab" role="tab" data-tab="template" aria-selected="false">模板</button>
@@ -170,6 +183,48 @@ fieldset.node legend{font-weight:700;padding:0 6px}
         <p class="hint" id="snapHint"></p>
         <div id="fields" class="panel-b" style="padding:0"></div>
         <label class="row" style="font-size:12.5px;color:var(--muted)"><input type="checkbox" id="nl2br"> 純文字欄位的換行自動轉成 &lt;br&gt;</label>
+      </div>
+
+      <div class="panel-b" id="tab-roster" hidden>
+        <p class="hint">在電腦公會的 Excel 選取一個區塊（含標題列）→ 複製 → 貼進下面的框。同一張表有兩個區塊（例如 A–E 欄是專題講者、G–M 欄是主持人與談人）時，就分成兩個資料區塊各貼一次。新版 Excel 來時，在同一個框整個重貼即可，差異會出現在右側。</p>
+        <div id="rsSources" class="panel-b" style="padding:0"></div>
+        <div class="row"><button id="rsAdd">新增資料區塊</button></div>
+        <details class="help" id="rsRulesWrap"><summary>整理規則：注記怎麼抽、合併儲存格、什麼叫齊備（點開調整）</summary>
+          <div class="panel-b" style="padding:10px 0 0">
+            <div class="field"><label class="fl" for="rsFields">名單欄位 <span>用逗號分隔，可自行增加，例如「是否確認完成, 照片, 簡介」</span></label><input id="rsFields" type="text"></div>
+            <div class="two">
+              <div class="field"><label class="fl" for="rsFill">往下補值的欄位 <span>Excel 合併儲存格只寫一次的</span></label><input id="rsFill" type="text"></div>
+              <div class="field"><label class="fl" for="rsReq">必填欄位 <span>空的就算「缺資料」</span></label><input id="rsReq" type="text"></div>
+              <div class="field"><label class="fl" for="rsKey">用哪些欄位認同一筆 <span>比對新舊版本用</span></label><input id="rsKey" type="text"></div>
+              <div class="field"><label class="fl" for="rsGroup">依哪個欄位分場次</label><select id="rsGroup"></select></div>
+            </div>
+            <div class="two">
+              <div class="field"><label class="fl" for="rsConfirm">算「已確認」的狀態 <span>一行一個，包含即可</span></label><textarea id="rsConfirm" rows="3"></textarea></div>
+              <div class="field"><label class="fl" for="rsExclude">算「不上稿」的字 <span>出現在狀態或姓名</span></label><textarea id="rsExclude" rows="3"></textarea></div>
+            </div>
+            <div class="field"><label class="fl" for="rsNotes">注記抽取規則 <span>一行一個正規表示式；符合的文字會從內容移到「注記」欄</span></label><textarea id="rsNotes" class="mono" rows="5" spellcheck="false"></textarea><span class="hint" id="rsNotesBad"></span></div>
+            <div class="field"><label class="fl" for="rsRoles">同一場的身分排序 <span>一行一個</span></label><textarea id="rsRoles" rows="3"></textarea></div>
+          </div>
+        </details>
+        <div class="row" id="rsSummary"></div>
+        <div class="row">
+          <label class="fl" for="rsFilter">顯示</label><select id="rsFilter" style="width:auto"><option value="">全部</option><option value="ready">齊備</option><option value="pending">待確認</option><option value="missing">缺資料</option><option value="out">不上稿</option></select>
+          <label class="fl" for="rsShowGroup">場次</label><select id="rsShowGroup" style="width:auto"></select>
+        </div>
+        <div class="tw"><table id="rsTable"></table></div>
+        <h3 style="margin:6px 0 0;font-size:14px">產出名單 HTML</h3>
+        <div class="two">
+          <div class="field"><label class="fl" for="rsRowTpl">每一位的版型 <span>用 {{欄位名}}</span></label><textarea id="rsRowTpl" class="mono" rows="3" spellcheck="false"></textarea></div>
+          <div class="field"><label class="fl" for="rsGroupTpl">每一場的外框 <span>{{分組}} 場次、{{rows}} 名單</span></label><textarea id="rsGroupTpl" class="mono" rows="3" spellcheck="false"></textarea></div>
+        </div>
+        <div class="row">
+          <label class="fl" for="rsOut">輸出哪些人</label><select id="rsOut" style="width:auto"><option value="nonempty">有姓名且不是不上稿的（含待確認）</option><option value="ready">只有齊備的</option><option value="all">全部（空缺席次也列）</option></select>
+          <label class="fl" for="rsOutGroup">場次</label><select id="rsOutGroup" style="width:auto"></select>
+          <button id="rsCopy" class="primary">複製名單 HTML</button>
+        </div>
+        <div class="warns" id="rsOutWarns"></div>
+        <textarea id="rsHtml" class="mono" readonly rows="8" spellcheck="false" aria-label="名單 HTML"></textarea>
+        <p class="hint">主要模板裡也可以用 <code class="k">{{名單}}</code> 放入全部場次，或 <code class="k">{{名單:11/9（一）}}</code> 只放某一場。</p>
       </div>
 
       <div class="panel-b" id="tab-nodes" hidden>
@@ -319,7 +374,7 @@ let saveTimer=null,dirty=false;
 function save(){dirty=true;clearTimeout(saveTimer);$('#saveState').textContent='儲存中…';saveTimer=setTimeout(saveNow,400)}
 function libEntry(){const cur=stateOf();const m=P.meta||{};
   const envs=P.envs.map(e=>{const v=e.ver&&verById(e.ver);return{name:e.name,no:v?v.no:0,need:v?changesBetween(v,cur).length>0:false}});
-  const st=[P.name,m.tags,m.owner,m.due,...P.envs.map(e=>{const n=e.node||{};return [e.name,n.path,n.id,n.admin,n.front,n.note].join(' ')}),...Object.values(P.values)].join(' ').toLowerCase().slice(0,30000);
+  const st=[P.name,m.tags,m.owner,m.due,...rosterSig().map(r=>r.n+' '+r.g),...P.envs.map(e=>{const n=e.node||{};return [e.name,n.path,n.id,n.admin,n.front,n.note].join(' ')}),...Object.values(P.values)].join(' ').toLowerCase().slice(0,30000);
   return{id:P.id,name:P.name,tags:m.tags||'',owner:m.owner||'',due:m.due||'',updated:Date.now(),envs,search:st}}
 async function saveNow(){clearTimeout(saveTimer);if(!P)return;dirty=false;const ok=await sSet('proj:'+P.id,JSON.parse(JSON.stringify(P)));
   const en=libEntry();const i=LIB.findIndex(x=>x.id===P.id);if(i>=0)LIB[i]=en;else LIB.unshift(en);LIB.sort((a,b)=>b.updated-a.updated);
@@ -328,6 +383,7 @@ async function saveNow(){clearTimeout(saveTimer);if(!P)return;dirty=false;const 
   $('#btnLib').textContent='稿件清單（'+LIB.length+'）';if(!$('#libPanel').hidden)renderLib()}
 function normalize(p){p.id=p.id||uid();p.meta=p.meta||{tags:'',owner:'',due:''};p.images=p.images||[];p.values=p.values||{};p.versions=p.versions||[];
   p.envs=(p.envs&&p.envs.length?p.envs:[{id:'company',name:'公司機',base:'/upload/'},{id:'test',name:'測試機',base:'/upload/'},{id:'prod',name:'正式機',base:'/upload/'}]).map(e=>Object.assign({ver:null,at:null},e,{node:Object.assign({path:'',id:'',admin:'',front:'',note:''},e.node||{})}));
+  p.roster=Object.assign(RS_DEFAULT(),p.roster||{});p.roster.sources=(p.roster.sources||[]).map(s=>Object.assign({id:uid(),name:'',raw:'',headerRow:0,map:{},defaults:{}},s));
   if(p.maxW===undefined)p.maxW=1600;if(p.quality===undefined)p.quality=0.85;if(p.nl2br===undefined)p.nl2br=true;return p}
 async function openProj(id){if(dirty)await saveNow();const p=await sGet('proj:'+id);if(!p){toast('找不到這份稿件的資料');return false}
   P=normalize(p);curEnv=P.envs[0].id;$('#tpl').value=P.template;aiPending=[];$('#aiResult').innerHTML='';refreshAll();await sSet('current',P.id);return true}
@@ -384,8 +440,13 @@ function seed(){
     values:{title:'【範例】COP31 周邊會議活動紀實',date:'2026-11-09',place:'（範例）會議地點',intro:'這是範例導言。實際內容請換成承辦人確認後的文字。',main_alt:'範例主視覺',
       agenda:'<ul>\n<li>09:30 報到</li>\n<li>10:00 開幕致詞</li>\n<li>10:30 專題座談</li>\n</ul>',photo1_alt:'範例照片一',photo2_alt:'範例照片二'},
     versions:[]};
+  const H='論壇日期\t邀約身分別\t邀約次序\t邀約狀態\t姓名\t單位職稱\t備註\n';
+  const RAW1=H+'11/9（一）\t主持人\t1\t確定出席\t王大明\t範例大學／環境學系／教授\t\n\t與談人\t1\t確定出席\t李小華（職稱待確認）\t範例研究院／氣候中心／研究員\t\n\t與談人\t2\t洽詢中\t\t\t※主辦單位尚在邀請\n11/10（二）\t主持人\t1\t確定出席\t陳美玲\t範例基金會／執行長\t\n\t與談人\t1\t婉拒\t林志明\t範例公司／永續部／經理\t改邀他人';
+  P.roster=Object.assign(RS_DEFAULT(),{sources:[{id:uid(),name:'範例：主持人與談人（G–M 欄）',raw:RAW1,headerRow:1,map:{},defaults:{}}]});autoMap(P.roster.sources[0],P.roster.fields);
   const v=snapshot('第一版（範例）');
   P.envs[0].ver=v.id;P.envs[0].at=Date.now();P.envs[1].ver=v.id;P.envs[1].at=Date.now();
+  // 模擬電腦公會傳來新版 Excel
+  P.roster.sources[0].raw=H+'11/9（一）\t主持人\t1\t確定出席\t王大明\t範例大學／環境學系／教授\t\n\t與談人\t1\t確定出席\t李小華\t範例研究院／氣候中心／副研究員\t\n\t與談人\t2\t確定出席\t張家豪\t範例協會／理事長\t\n11/10（二）\t主持人\t1\t確定出席\t陳美玲\t範例基金會／執行長\t\n\t與談人\t1\t洽詢中\t黃雅婷（暫定）\t範例顧問公司／總監\t';
   // 模擬電腦公會又改了資料
   P.values.agenda='<ul>\n<li>09:30 報到</li>\n<li>10:00 開幕致詞</li>\n<li>10:20 合影</li>\n<li>10:40 專題座談</li>\n</ul>';
   P.values.intro='這是範例導言（已依電腦公會 11/06 版本修正）。實際內容請換成承辦人確認後的文字。';
@@ -395,7 +456,7 @@ function blankProject(keepEnvs){return{id:uid(),meta:{tags:'',owner:'',due:''},n
 
 /* ---------- 模板解析與產出 ---------- */
 const FIELD_RE=/{{\s*([^}|:]+?)\s*(?:\|([^}]*))?}}/g, IMG_RE=/{{\s*img:([\w\-.]+)\s*}}/g;
-function parseFields(tpl){const m=new Map();let r;FIELD_RE.lastIndex=0;while((r=FIELD_RE.exec(tpl))){const n=r[1].trim();if(n==='BASE')continue;if(!m.has(n))m.set(n,(r[2]||'').trim())}return m}
+function parseFields(tpl){const m=new Map();let r;FIELD_RE.lastIndex=0;while((r=FIELD_RE.exec(tpl))){const n=r[1].trim();if(n==='BASE'||n==='名單')continue;if(!m.has(n))m.set(n,(r[2]||'').trim())}return m}
 function parseImgs(tpl){const s=new Set();let r;IMG_RE.lastIndex=0;while((r=IMG_RE.exec(tpl)))s.add(r[1]);return s}
 function joinBase(b,f){if(!b)return f;return b.endsWith('/')?b+f:b+'/'+f}
 function fieldValue(n,def){let v=P.values[n];if(v===undefined||v==='')v=def||'';return v}
@@ -403,6 +464,7 @@ function render(env,m,preview){
   const warns=[];
   let out=P.template.replace(IMG_RE,(x,k)=>{const im=P.images.find(i=>i.key===k);if(!im){warns.push(['e','模板用到 '+k+'，但圖片區沒有這張圖']);return '[缺圖:'+k+']'}return (preview||m==='inline')?im.data:joinBase(env.base,im.file)});
   out=out.replace(/{{\s*BASE\s*}}/g,env.base||'');
+  out=out.replace(/{{\s*名單(?::([^}]*))?\s*}}/g,(x,g)=>{const h=rosterHtml(g===undefined?undefined:g.trim());if(!h)warns.push(['w','模板用到名單，但名單沒有資料'+(g?'（場次：'+g.trim()+'）':'')]);return h});
   out=out.replace(FIELD_RE,(x,n,d)=>{n=n.trim();let v=fieldValue(n,(d||'').trim());if(v==='')warns.push(['w','欄位 '+n+' 是空的']);if(P.nl2br&&v.includes('\n')&&!/<[a-z][\s\S]*>/i.test(v))v=v.replace(/\r?\n/g,'<br>\n');return v});
   if(!preview){const tags=out.match(/<img\b[^>]*>/gi)||[];tags.forEach((t,i)=>{const a=t.match(/\balt\s*=\s*("([^"]*)"|'([^']*)')/i);const label='第 '+(i+1)+' 張圖片';if(!a)warns.push(['e','無障礙：'+label+'沒有 alt 屬性']);else{const v=(a[2]!==undefined?a[2]:a[3]||'').trim();if(!v)warns.push(['w','無障礙：'+label+'的 alt 是空的（純裝飾圖才可以留空）']);else if(/\.(jpe?g|png|gif|webp)$/i.test(v)||/^(img|image|圖片|照片|photo|dsc|img_)\d*$/i.test(v))warns.push(['w','無障礙：'+label+'的 alt「'+v+'」看起來像檔名，請改成描述圖片內容'])}})}
   if(m==='inline'&&!preview){const kb=Math.round(out.length/1024);if(kb>1500)warns.push(['w','內嵌後 HTML 約 '+kb+' KB，部分 CMS 可能存不進去，可以把最大寬度調小'])}
@@ -412,15 +474,16 @@ function render(env,m,preview){
 /* ---------- 版本 ---------- */
 function imgSig(){const o={};P.images.forEach(i=>o[i.key]=i.file+'|'+i.data.length+'|'+i.data.slice(-32));return o}
 function cleanVals(v){const o={};Object.keys(v).sort().forEach(k=>{if(v[k]!==''&&v[k]!==undefined)o[k]=v[k]});return o}
-function snapshot(label){const last=P.versions[P.versions.length-1];const v={id:uid(),no:(last?last.no:0)+1,time:Date.now(),label:label||'',values:cleanVals(P.values),template:P.template,imgs:imgSig()};P.versions.push(v);return v}
+function snapshot(label){const last=P.versions[P.versions.length-1];const v={id:uid(),no:(last?last.no:0)+1,time:Date.now(),label:label||'',values:cleanVals(P.values),template:P.template,imgs:imgSig(),roster:rosterSig()};P.versions.push(v);return v}
 const verById=id=>P.versions.find(v=>v.id===id);
-function stateOf(){return{values:cleanVals(P.values),template:P.template,imgs:imgSig()}}
+function stateOf(){return{values:cleanVals(P.values),template:P.template,imgs:imgSig(),roster:rosterSig()}}
 function changesBetween(a,b){ // a,b: {values,template,imgs}
   const ch=[];const keys=new Set([...Object.keys(a.values),...Object.keys(b.values)]);
   [...keys].sort().forEach(k=>{const x=a.values[k]||'',y=b.values[k]||'';if(x!==y)ch.push({type:'field',key:k,from:x,to:y})});
   if(a.template!==b.template)ch.push({type:'template',from:a.template,to:b.template});
   const ik=new Set([...Object.keys(a.imgs),...Object.keys(b.imgs)]);
   [...ik].sort().forEach(k=>{const x=a.imgs[k],y=b.imgs[k];if(x!==y)ch.push({type:'image',key:k,kind:!x?'新增':!y?'刪除':'更換',file:(y||x).split('|')[0]})});
+  rosterDiff(a.roster,b.roster).forEach(c=>ch.push(c));
   return ch;
 }
 const latest=()=>P.versions[P.versions.length-1];
@@ -476,8 +539,8 @@ async function addFiles(files){let n=0;for(const f of files){if(!/^image\//.test
 function renderEnvs(){const l=latest();const cur=stateOf();
   $('#envs').innerHTML=P.envs.map(e=>{let st,chip;const v=e.ver&&verById(e.ver);
     if(!v){st='尚未標記上稿';chip='<span class="chip mute">未上稿</span>'}
-    else{const ch=changesBetween(v,cur);const nf=ch.filter(c=>c.type==='field').length,ni=ch.filter(c=>c.type==='image').length,nt=ch.some(c=>c.type==='template');
-      st='已上 v'+v.no+'（'+fmtTime(e.at||v.time)+'）'+(ch.length?'<br>之後改了：'+[nf?nf+' 個欄位':'',ni?ni+' 張圖片':'',nt?'模板':''].filter(Boolean).join('、'):'<br>與目前內容相同');
+    else{const ch=changesBetween(v,cur);const nf=ch.filter(c=>c.type==='field').length,ni=ch.filter(c=>c.type==='image').length,nt=ch.some(c=>c.type==='template'),nr=ch.filter(c=>c.type==='roster').length;
+      st='已上 v'+v.no+'（'+fmtTime(e.at||v.time)+'）'+(ch.length?'<br>之後改了：'+[nf?nf+' 個欄位':'',nr?'名單 '+nr+' 筆':'',ni?ni+' 張圖片':'',nt?'模板':''].filter(Boolean).join('、'):'<br>與目前內容相同');
       chip=ch.length?'<span class="chip changed">需更新</span>':'<span class="chip ok">最新</span>'}
     const n=e.node||{};const links=(n.admin?`<a href="${esc(safeUrl(n.admin))}" target="_blank" rel="noopener">開後台 ↗</a>`:'')+(n.front?`<a href="${esc(safeUrl(n.front))}" target="_blank" rel="noopener">看前台 ↗</a>`:'');
     return `<div class="env" data-env="${e.id}" aria-current="${e.id===curEnv}" tabindex="0"><div class="name"><span>${esc(e.name)}</span>${chip}</div>
@@ -493,10 +556,12 @@ function renderEnvs(){const l=latest();const cur=stateOf();
 function renderChanges(){const e=P.envs.find(x=>x.id===curEnv);const v=e.ver&&verById(e.ver);const box=$('#changes');
   if(!v){box.innerHTML='<p class="hint">'+esc(e.name)+' 還沒有上稿紀錄。上完整篇後按「標記已上稿」，之後這裡就會列出要改的地方。</p>';return}
   const ch=changesBetween(v,stateOf());if(!ch.length){box.innerHTML='<p class="hint">'+esc(e.name)+' 上的 v'+v.no+' 就是目前內容，不用重上。</p>';return}
-  box.innerHTML='<div class="panel" style="border-style:dashed"><div class="panel-b" style="gap:10px"><strong style="font-size:13.5px">'+esc(e.name)+' 從 v'+v.no+' 之後要改的地方</strong>'+ch.map((c,i)=>{
+  const rc=ch.filter(c=>c.type==='roster');
+  box.innerHTML='<div class="panel" style="border-style:dashed"><div class="panel-b" style="gap:10px"><strong style="font-size:13.5px">'+esc(e.name)+' 從 v'+v.no+' 之後要改的地方</strong>'+rosterChangesHtml(rc,true)+ch.map((c,i)=>{if(c.type==='roster')return '';
     if(c.type==='field')return `<div class="change"><div class="h"><code>${esc(c.key)}</code><button data-cc="${i}">複製新內容</button></div><div class="diff">${diffHtml(c.from,c.to)}</div></div>`;
     if(c.type==='image')return `<div class="change"><div class="h"><span>圖片 <code>${esc(c.key)}</code>（${c.kind}）</span></div><p class="hint">${mode==='inline'?'內嵌模式：直接整段重貼即可，不用另外上傳。':c.kind==='刪除'?'可以從 CMS 刪掉這張圖。':'要把 '+esc(c.file)+' 上傳到 '+esc(e.base)}</p></div>`;
     return `<div class="change"><div class="h"><span>模板結構有改</span></div><p class="hint">版面有變動，建議整段重貼。</p></div>`}).join('')+'</div></div>';
+  bindCopyGroups(box);
   $$('[data-cc]').forEach(b=>b.addEventListener('click',()=>{const c=ch[+b.dataset.cc];let v=c.to;if(P.nl2br&&v.includes('\n')&&!/<[a-z][\s\S]*>/i.test(v))v=v.replace(/\r?\n/g,'<br>\n');copyText(v)}));
 }
 function renderOutput(){const e=P.envs.find(x=>x.id===curEnv);const r=render(e,mode,false);$('#out').value=r.html;$('#curEnvName').textContent=e.name;
@@ -510,10 +575,10 @@ function renderVers(){const box=$('#vers');box.innerHTML=P.versions.slice().reve
   const a=$('#cmpFrom').value,b=$('#cmpTo').value;$('#cmpFrom').innerHTML=opts;$('#cmpTo').innerHTML=opts;
   $('#cmpFrom').value=a&&$('#cmpFrom').querySelector(`option[value="${a}"]`)?a:(P.versions.length?P.versions[Math.max(0,P.versions.length-1)].id:'__cur');$('#cmpTo').value=b&&$('#cmpTo').querySelector(`option[value="${b}"]`)?b:'__cur'}
 function cmpVersions(){const g=id=>id==='__cur'?stateOf():verById(id);const a=g($('#cmpFrom').value),b=g($('#cmpTo').value);if(!a||!b)return;const ch=changesBetween(a,b);
-  $('#verDiff').innerHTML=ch.length?ch.map(c=>c.type==='field'?`<div class="change"><div class="h"><code>${esc(c.key)}</code></div><div class="diff">${diffHtml(c.from,c.to)}</div></div>`:c.type==='image'?`<div class="change"><span>圖片 <code>${esc(c.key)}</code>：${c.kind}</span></div>`:`<div class="change"><span>模板</span><div class="diff mono">${diffHtml(c.from,c.to)}</div></div>`).join(''):'<p class="hint">兩個版本內容相同。</p>'}
+  $('#verDiff').innerHTML=ch.length?rosterChangesHtml(ch.filter(c=>c.type==='roster'),false)+ch.filter(c=>c.type!=='roster').map(c=>c.type==='field'?`<div class="change"><div class="h"><code>${esc(c.key)}</code></div><div class="diff">${diffHtml(c.from,c.to)}</div></div>`:c.type==='image'?`<div class="change"><span>圖片 <code>${esc(c.key)}</code>：${c.kind}</span></div>`:`<div class="change"><span>模板</span><div class="diff mono">${diffHtml(c.from,c.to)}</div></div>`).join(''):'<p class="hint">兩個版本內容相同。</p>'}
 
 /* ---------- 共用 ---------- */
-function refreshAll(){$('#projName').value=P.name;$('#nl2br').checked=!!P.nl2br;$('#maxW').value=P.maxW;$('#quality').value=P.quality;renderFields(true);renderNodes();renderImgs();renderEnvs();renderOutput();renderVers()}
+function refreshAll(){$('#projName').value=P.name;$('#nl2br').checked=!!P.nl2br;$('#maxW').value=P.maxW;$('#quality').value=P.quality;renderFields(true);renderRoster();renderNodes();renderImgs();renderEnvs();renderOutput();renderVers()}
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2200)}
 function copyText(s){const fb=()=>{const ta=document.createElement('textarea');ta.value=s;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}ta.remove();toast(ok?'已複製':'無法自動複製，請手動選取複製')};
   try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(s).then(()=>toast('已複製'),fb)}else fb()}catch(e){fb()}}
@@ -537,6 +602,114 @@ async function importData(obj){const arr=obj&&obj.type==='shanggao-library'&&Arr
     if(dirty)await saveNow();P=c;await saveNow();last=c.id;n++}
   if(!n)throw new Error('格式不對');await openProj(last);return n}
 
+/* ---------- 名單模式 ---------- */
+const RS_DEFAULT=()=>({sources:[],fields:['日期','身分別','次序','狀態','姓名','單位職稱'],fillDown:['日期','身分別'],required:['姓名','單位職稱'],keyFields:['日期','身分別','姓名'],groupBy:'日期',
+  confirm:'確定出席\n確定參與\n已確認',exclude:'取消\n婉拒\n不克出席',
+  notePatterns:'[（(][^）)]*(註|待|確認|暫定|未定|備註|洽|？|\\?)[^）)]*[）)]\n【[^】]*】\n^\\s*[※＊*].*$\n^\\s*(註|備註|PS)[:：].*$\n^\\s*(待確認|待定|未定|洽詢中|TBD|TBC)\\s*$',
+  roleOrder:'主持人\n專題講者\n與談人',outMode:'nonempty',
+  rowTpl:'<li><strong>{{姓名}}</strong>｜{{單位職稱}}</li>',
+  groupTpl:'<!-- 名單:{{分組}} -->\n<h3>{{分組}}</h3>\n<ul>\n{{rows}}\n</ul>'});
+const ST_LABEL={ready:['齊備','ok'],pending:['待確認','changed'],missing:['缺資料','bad'],out:['不上稿','mute']};
+const SYN={'日期':/日期|場次|date/i,'身分別':/身分|身份|角色|類別/,'次序':/次序|順序|排序|序號/,'狀態':/狀態/,'姓名':/姓名|名字|^講者$|name/i,'單位職稱':/單位|職稱|服務/,'照片':/照片|相片|photo/i,'簡介':/簡介|介紹|bio/i};
+function colLetter(i){let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s}
+function parseTSV(t){const rows=[];let row=[],cell='',q=false;t=t||'';for(let i=0;i<t.length;i++){const c=t[i];
+  if(q){if(c==='"'){if(t[i+1]==='"'){cell+='"';i++}else q=false}else cell+=c}
+  else if(c==='"'&&cell===''){q=true}else if(c==='\t'){row.push(cell);cell=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(cell);rows.push(row);row=[];cell=''}else cell+=c}
+  if(cell!==''||row.length){row.push(cell);rows.push(row)}return rows}
+function detectHeader(rows){let best=-1,bs=1;for(let i=0;i<Math.min(rows.length,15);i++){const s=rows[i].filter(c=>c&&Object.values(SYN).some(re=>re.test(c.trim()))).length;if(s>bs){bs=s;best=i}}return best+1}
+function autoMap(src,fields){const rows=parseTSV(src.raw);const h=src.headerRow>0?(rows[src.headerRow-1]||[]):[];const used=new Set();const map={};
+  fields.forEach(f=>{let bi=-1,bsc=0;h.forEach((c,i)=>{c=(c||'').trim();if(!c||used.has(i))return;const sc=c===f?4:c.includes(f)?3:(SYN[f]&&SYN[f].test(c))?2:0;if(sc>bsc){bsc=sc;bi=i}});if(bi>=0){map[f]=bi;used.add(bi)}});src.map=map}
+const splitList=s=>String(s||'').split(/[,，、\n]/).map(x=>x.trim()).filter(Boolean);
+let rsCache={sig:null,val:null};
+function computeRoster(){const R=P.roster;const sig=JSON.stringify(R);if(rsCache.sig===sig)return rsCache.val;
+  const pl=R.notePatterns.split('\n').map(s=>s.trim()).filter(Boolean).map(l=>{try{return new RegExp(l,'gmi')}catch(e){return null}});
+  const pats=pl.filter(Boolean),bad=pl.length-pats.length;const lines=s=>String(s||'').split('\n').map(x=>x.trim()).filter(Boolean);
+  const conf=lines(R.confirm),excl=lines(R.exclude),roles=lines(R.roleOrder);
+  const statusMapped=R.sources.some(s=>s.map&&s.map['狀態']>=0);
+  const classify=(f,notes)=>{const s=(f['狀態']||'')+' '+(f['姓名']||'');if(excl.some(k=>s.includes(k)))return 'out';if(R.required.some(x=>!f[x]))return 'missing';if(notes.length)return 'pending';if(statusMapped&&conf.length&&!conf.some(k=>(f['狀態']||'').includes(k)))return 'pending';return 'ready'};
+  const out=[];let seq=0;
+  R.sources.forEach(src=>{const rows=parseTSV(src.raw);const hr=src.headerRow||0;const h=hr>0?(rows[hr-1]||[]):[];const last={};const mapped=Object.values(src.map||{});
+    const noteCols=h.map((c,i)=>i).filter(i=>!mapped.includes(i)&&/備註|註記|注記|說明|note|memo/i.test(h[i]||''));const hdrSig=h.join('\t');
+    rows.slice(hr).forEach((row,ri)=>{if(!row.some(c=>c&&c.trim()))return;if(hr>0&&row.join('\t')===hdrSig)return;
+      const f={},notes=[];let own=false;
+      R.fields.forEach(fn=>{const ci=src.map?src.map[fn]:undefined;const raw=(ci!==undefined&&ci!==null&&ci>=0)?String(row[ci]||''):'';
+        let v=raw.replace(/　/g,' ').replace(/\r/g,'');if(fn!=='狀態')pats.forEach(re=>{re.lastIndex=0;v=v.replace(re,m=>{const t=m.trim();if(t)notes.push(fn+'：'+t);return ''})});
+        v=v.split('\n').map(s=>s.replace(/[ \t]+/g,' ').trim()).filter(Boolean).join('\n');
+        const fd=R.fillDown.includes(fn);if(raw.trim()&&!fd)own=true;
+        if(v&&fd)last[fn]=v;else if(!v&&fd&&last[fn])v=last[fn];
+        if(!v&&src.defaults&&src.defaults[fn])v=src.defaults[fn];f[fn]=v});
+      noteCols.forEach(i=>{const t=String(row[i]||'').trim();if(t){notes.push((h[i]||colLetter(i))+'：'+t);own=true}});
+      if(!own)return;
+      out.push({k:'',g:f[R.groupBy]||'（未分場次）',f,notes,st:classify(f,notes),src:src.name||'',seq:seq++,row:hr+ri+1})})});
+  const seen={};out.forEach(r=>{let k=R.keyFields.some(x=>r.f[x])?R.keyFields.map(x=>r.f[x]||'').join('｜'):(r.src+'｜第'+r.row+'列');
+    if(seen[k]){seen[k]++;r.notes.push('識別欄位重複：'+k);if(r.st==='ready')r.st='pending';k+='#'+seen[k]}else seen[k]=1;r.k=k});
+  const gOrder=[];out.forEach(r=>{if(!gOrder.includes(r.g))gOrder.push(r.g)});
+  const roleIdx=v=>{const i=roles.findIndex(x=>v&&v.includes(x));return i<0?99:i};const num=v=>{const m=String(v||'').match(/\d+/);return m?+m[0]:9999};
+  out.sort((a,b)=>gOrder.indexOf(a.g)-gOrder.indexOf(b.g)||roleIdx(a.f['身分別'])-roleIdx(b.f['身分別'])||num(a.f['次序'])-num(b.f['次序'])||a.seq-b.seq);
+  const val={rows:out,groups:gOrder,bad};rsCache={sig,val};return val}
+function rosterKeep(r){const m=P.roster.outMode;return m==='ready'?r.st==='ready':m==='all'?r.st!=='out':(r.st!=='out'&&!!r.f['姓名'])}
+function fillRow(t,r){return t.replace(/{{\s*([^}|]+?)\s*(?:\|([^}]*))?}}/g,(m,n,d)=>{n=n.trim();if(n==='分組')return esc(r.g);if(!(n in r.f))return '[未知欄位:'+esc(n)+']';return esc(r.f[n]||d||'').replace(/\n/g,'<br>')})}
+function rosterHtml(gv){if(!P.roster||!P.roster.sources.length)return '';const R=P.roster;const {rows,groups}=computeRoster();const gs=gv===undefined?groups:groups.filter(g=>g===gv);
+  return gs.map(g=>{const body=rows.filter(r=>r.g===g&&rosterKeep(r)).map(r=>fillRow(R.rowTpl,r)).join('\n');return R.groupTpl.replace(/{{\s*rows\s*}}/g,body).replace(/{{\s*分組\s*}}/g,esc(g))}).join('\n\n')}
+function rosterSig(){if(!P.roster||!P.roster.sources.length)return [];return computeRoster().rows.map(r=>({k:r.k,g:r.g,n:r.f['姓名']||'',f:r.f,st:r.st}))}
+function rosterDiff(a,b){const ch=[];const ra={},rb={};const nm=(r,k)=>r.n||('空缺席次（'+(r.f['身分別']||'')+(r.f['次序']?' '+r.f['次序']:'')+'）');(a||[]).forEach(r=>ra[r.k]=r);(b||[]).forEach(r=>rb[r.k]=r);
+  [...new Set([...Object.keys(ra),...Object.keys(rb)])].forEach(k=>{const x=ra[k],y=rb[k];
+    if(!x)ch.push({type:'roster',kind:'新增',g:y.g,name:nm(y,k),fields:Object.keys(y.f).filter(f=>y.f[f]).map(f=>({f,from:'',to:y.f[f]}))});
+    else if(!y)ch.push({type:'roster',kind:'移除',g:x.g,name:nm(x,k),fields:[]});
+    else{const fs=[...new Set([...Object.keys(x.f),...Object.keys(y.f)])].filter(f=>(x.f[f]||'')!==(y.f[f]||'')).map(f=>({f,from:x.f[f]||'',to:y.f[f]||''}));if(fs.length)ch.push({type:'roster',kind:'修改',g:y.g,name:y.n||nm(x,k),fields:fs})}});
+  return ch}
+function rosterChangesHtml(rc,withCopy){const groups=[...new Set(rc.map(c=>c.g))];
+  return groups.map(g=>{const items=rc.filter(c=>c.g===g);return `<div class="change"><div class="h"><span>名單 · <b>${esc(g)}</b>（${items.length} 筆異動）</span>${withCopy?`<button data-cg="${esc(g)}">複製這一場的 HTML</button>`:''}</div><div class="rg">`+
+    items.map(c=>`<div class="ri"><div class="t"><span class="chip ${c.kind==='移除'?'bad':c.kind==='新增'?'ok':'changed'}">${c.kind}</span><b>${esc(c.name)}</b></div>`+(c.kind==='修改'?c.fields.map(x=>`<div class="diff" style="padding:6px 8px">${esc(x.f)}：${diffHtml(x.from,x.to)}</div>`).join(''):'')+'</div>').join('')+'</div></div>'}).join('')}
+function bindCopyGroups(box){box.querySelectorAll('[data-cg]').forEach(b=>b.addEventListener('click',()=>copyText(rosterHtml(b.dataset.cg))))}
+
+/* 名單畫面 */
+let rsTimer;
+function renderRoster(){const R=P.roster;
+  $('#rsFields').value=R.fields.join(', ');$('#rsFill').value=R.fillDown.join(', ');$('#rsReq').value=R.required.join(', ');$('#rsKey').value=R.keyFields.join(', ');
+  $('#rsGroup').innerHTML=R.fields.map(f=>`<option ${f===R.groupBy?'selected':''}>${esc(f)}</option>`).join('');
+  $('#rsConfirm').value=R.confirm;$('#rsExclude').value=R.exclude;$('#rsNotes').value=R.notePatterns;$('#rsRoles').value=R.roleOrder;
+  $('#rsRowTpl').value=R.rowTpl;$('#rsGroupTpl').value=R.groupTpl;$('#rsOut').value=R.outMode;
+  $('#rsSources').innerHTML=R.sources.map((s,i)=>`<fieldset class="node"><legend><input type="text" data-sn="${i}" value="${esc(s.name||'')}" aria-label="區塊名稱" style="width:min(320px,70vw);font-weight:700"></legend>
+    <textarea data-sraw="${i}" class="mono" rows="5" spellcheck="false" placeholder="在 Excel 選取這個區塊（含標題列）→ 複製 → 貼在這裡">${esc(s.raw||'')}</textarea>
+    <div class="row"><label class="fl" for="shr-${i}">標題列在第</label><input id="shr-${i}" type="number" min="0" max="30" data-shr="${i}" value="${s.headerRow||0}" style="width:70px"><span class="hint">列（0 表示沒有標題列；貼上時會自動偵測）</span>
+      <button data-sauto="${i}">依標題重新對應</button><button class="danger" data-sdel="${i}">刪除區塊</button></div>
+    <div class="maps" data-smaps="${i}"></div></fieldset>`).join('')||'<p class="hint">還沒有資料區塊。按「新增資料區塊」開始。</p>';
+  R.sources.forEach((s,i)=>renderMaps(i));
+  $$('[data-sn]').forEach(el=>el.addEventListener('input',()=>{R.sources[+el.dataset.sn].name=el.value;save();schedRS()}));
+  $$('[data-sraw]').forEach(el=>el.addEventListener('input',()=>{const s=R.sources[+el.dataset.sraw];const fresh=!s.raw||!Object.keys(s.map||{}).length;s.raw=el.value;
+    if(fresh){s.headerRow=detectHeader(parseTSV(s.raw));autoMap(s,R.fields);$(`[data-shr="${el.dataset.sraw}"]`).value=s.headerRow}renderMaps(+el.dataset.sraw);save();schedRS()}));
+  $$('[data-shr]').forEach(el=>el.addEventListener('change',()=>{const s=R.sources[+el.dataset.shr];s.headerRow=Math.max(0,+el.value||0);renderMaps(+el.dataset.shr);save();schedRS()}));
+  $$('[data-sauto]').forEach(b=>b.addEventListener('click',()=>{const s=R.sources[+b.dataset.sauto];autoMap(s,R.fields);renderMaps(+b.dataset.sauto);save();schedRS();toast('已依標題列重新對應欄位')}));
+  $$('[data-sdel]').forEach(b=>armed(b,()=>{R.sources.splice(+b.dataset.sdel,1);save();renderRoster()}));
+  renderRosterResult()}
+function renderMaps(i){const R=P.roster,s=R.sources[i];const rows=parseTSV(s.raw);const hr=s.headerRow||0;const h=hr>0?(rows[hr-1]||[]):(rows[0]||[]);
+  const nc=rows.reduce((m,r)=>Math.max(m,r.length),0);const opts=sel=>'<option value="-1">（不使用）</option>'+Array.from({length:nc},(_,c)=>`<option value="${c}" ${sel===c?'selected':''}>${colLetter(c)}｜${esc(String(h[c]||'').slice(0,14))}</option>`).join('');
+  const box=$(`[data-smaps="${i}"]`);if(!box)return;
+  box.innerHTML=R.fields.map(f=>{const sel=s.map&&s.map[f]!==undefined?s.map[f]:-1;return `<div class="field"><label class="fl">${esc(f)}</label><select data-smap="${i}" data-f="${esc(f)}" aria-label="${esc(f)} 對應欄">${opts(sel)}</select><input type="text" data-sdef="${i}" data-f="${esc(f)}" value="${esc((s.defaults||{})[f]||'')}" placeholder="或固定值"></div>`}).join('');
+  box.querySelectorAll('[data-smap]').forEach(el=>el.addEventListener('change',()=>{s.map=s.map||{};const v=+el.value;if(v<0)delete s.map[el.dataset.f];else s.map[el.dataset.f]=v;save();schedRS()}));
+  box.querySelectorAll('[data-sdef]').forEach(el=>el.addEventListener('input',()=>{s.defaults=s.defaults||{};s.defaults[el.dataset.f]=el.value;save();schedRS()}))}
+function schedRS(){clearTimeout(rsTimer);rsTimer=setTimeout(()=>{renderRosterResult();renderEnvs();renderOutput()},250)}
+function renderRosterResult(){const R=P.roster;const {rows,groups,bad}=computeRoster();
+  $('#rsNotesBad').textContent=bad?bad+' 條規則寫法有誤，已略過':'';
+  const cnt={ready:0,pending:0,missing:0,out:0};rows.forEach(r=>cnt[r.st]++);
+  $('#rsSummary').innerHTML=rows.length?`<span class="hint">共 ${groups.length} 場、${rows.length} 筆：</span>`+Object.keys(cnt).map(k=>`<span class="chip ${ST_LABEL[k][1]}">${ST_LABEL[k][0]} ${cnt[k]}</span>`).join(''):'<span class="hint">貼上資料後，這裡會顯示整理結果。</span>';
+  const gsel=(id)=>{const el=$(id),v=el.value;el.innerHTML='<option value="__all">全部場次</option>'+groups.map(g=>`<option>${esc(g)}</option>`).join('');el.value=groups.includes(v)?v:'__all'};gsel('#rsShowGroup');gsel('#rsOutGroup');
+  const f=$('#rsFilter').value,g=$('#rsShowGroup').value;const show=rows.filter(r=>(!f||r.st===f)&&(g==='__all'||r.g===g));
+  $('#rsTable').innerHTML=rows.length?`<thead><tr><th>判定</th>${R.fields.map(x=>'<th>'+esc(x)+'</th>').join('')}<th>注記</th><th>來源</th></tr></thead><tbody>`+
+    show.slice(0,600).map(r=>`<tr><td><span class="chip ${ST_LABEL[r.st][1]}">${ST_LABEL[r.st][0]}</span></td>${R.fields.map(x=>'<td>'+esc(r.f[x]||'')+'</td>').join('')}<td class="nt">${r.notes.map(esc).join('\n')}</td><td class="mut">${esc(r.src)} 第${r.row}列</td></tr>`).join('')+'</tbody>':'';
+  const og=$('#rsOutGroup').value;$('#rsHtml').value=rosterHtml(og==='__all'?undefined:og);
+  const pend=rows.filter(r=>rosterKeep(r)&&r.st!=='ready').length;$('#rsOutWarns').innerHTML=pend?'<span class="w">輸出裡有 '+pend+' 筆不是「齊備」（待確認或缺資料），上稿前請先確認。</span>':''}
+function bindRoster(){const R=()=>P.roster;
+  $('#rsAdd').addEventListener('click',()=>{R().sources.push({id:uid(),name:'資料區塊 '+(R().sources.length+1),raw:'',headerRow:0,map:{},defaults:{}});save();renderRoster()});
+  const lst=(id,k)=>$(id).addEventListener('change',e=>{R()[k]=splitList(e.target.value);if(k==='fields'&&!R().fields.includes(R().groupBy))R().groupBy=R().fields[0]||'';save();renderRoster();renderEnvs();renderOutput()});
+  lst('#rsFields','fields');lst('#rsFill','fillDown');lst('#rsReq','required');lst('#rsKey','keyFields');
+  $('#rsGroup').addEventListener('change',e=>{R().groupBy=e.target.value;save();schedRS()});
+  [['#rsConfirm','confirm'],['#rsExclude','exclude'],['#rsNotes','notePatterns'],['#rsRoles','roleOrder'],['#rsRowTpl','rowTpl'],['#rsGroupTpl','groupTpl']].forEach(([id,k])=>$(id).addEventListener('input',e=>{R()[k]=e.target.value;save();schedRS()}));
+  $('#rsOut').addEventListener('change',e=>{R().outMode=e.target.value;save();schedRS()});
+  ['#rsFilter','#rsShowGroup','#rsOutGroup'].forEach(id=>$(id).addEventListener('change',renderRosterResult));
+  $('#rsCopy').addEventListener('click',()=>copyText($('#rsHtml').value))}
+
 /* ---------- AI 協作（不連 API，產生提示詞、解析貼回的回覆） ---------- */
 const JSON_RULE='\n\n請只輸出一個 json 程式碼區塊，不要有其他說明文字，格式如下：\n```json\n{\n  "fields": { "欄位名稱": "新內容" },\n  "notes": ["需要人工確認的事項，沒有就留空陣列"]\n}\n```\n欄位名稱只能用上面清單裡已有的名稱，不可自創；沒有要改的欄位就不要放進 fields。';
 const DEFAULT_PROMPTS=[
@@ -555,13 +728,18 @@ const DEFAULT_PROMPTS=[
  {id:'p-free',name:'自由提問',expect:'text',desc:'把整份稿件資料帶給 AI，問什麼都可以，例如「幫我想三種標題」。',
   body:'以下是一份政府機關網頁稿件的資料，請根據它回答我的問題。\n\n稿件名稱：[[稿件名稱]]\n\n欄位內容（JSON）：\n[[欄位JSON]]\n\n我的問題或需求：\n[[額外要求]]\n\n補充素材：\n[[素材]]\n\n如果你的回答包含要修改的欄位內容，請另外附上一個 json 程式碼區塊，格式為 {"fields": {"欄位名稱": "新內容"}, "notes": []}，欄位名稱只能用上面已有的名稱。'}
 ];
-const PLACEHOLDERS=['欄位JSON','素材','額外要求','變更','輸出HTML','模板','圖片清單','替代文字欄位','稿件名稱','今天'];
+DEFAULT_PROMPTS.splice(1,0,{id:'p-roster',name:'名單注記判讀',expect:'text',desc:'電腦公會的 Excel 注記很多時用。AI 逐筆看注記和判定，整理出真正影響上稿的事項與要問的問題。',
+  body:'你是政府機關活動網站的上稿編輯助理。下面是從合作廠商 Excel 貼上、經工具初步整理的論壇講者名單。工具已經把括號、※、備註欄等注記抽到「注記」欄，並判定每筆狀態（齊備／待確認／缺資料／不上稿）。\n\n請逐筆檢查，整理成三個部分：\n1. 會改變上稿內容的注記：例如職稱更正、改由他人出席、順序調整、場次異動。寫出「場次／姓名／注記原文／對上稿的影響」。\n2. 判定可能有誤的：例如注記其實只是內部提醒，資料已可上稿；或狀態寫確定，注記卻顯示還沒確定。\n3. 需要詢問電腦公會或承辦人的問題：每題一句，可以直接複製發問，同一場次的問題放在一起。\n\n規則：不要改寫姓名與職稱；不確定就寫不確定，不要推測；只看表格裡有的資訊。\n\n額外要求：[[額外要求]]\n\n名單（Tab 分隔）：\n[[名單表格]]'});
+const PLACEHOLDERS=['欄位JSON','名單表格','素材','額外要求','變更','輸出HTML','模板','圖片清單','替代文字欄位','稿件名稱','今天'];
 const EXTRA_CHIPS=['只改素材有改的地方，不要潤飾','用更正式的公文語氣','寫得更簡潔','給我三種不同寫法讓我挑','把所有不確定的地方都列出來'];
 let PROMPTS=[],curPrompt=null,aiPending=[];
 const envCur=()=>P.envs.find(x=>x.id===curEnv);
 const curP=()=>PROMPTS.find(p=>p.id===curPrompt)||PROMPTS[0];
 let pTimer;function savePrompts(){clearTimeout(pTimer);pTimer=setTimeout(()=>store.set('prompts',JSON.parse(JSON.stringify(PROMPTS))),400)}
-async function loadPrompts(){const s=await store.get('prompts');PROMPTS=Array.isArray(s)&&s.length?s:JSON.parse(JSON.stringify(DEFAULT_PROMPTS));curPrompt=PROMPTS[0].id}
+async function loadPrompts(){const s=await store.get('prompts');const seen=(await store.get('promptsSeen'))||[];
+  if(Array.isArray(s)&&s.length){PROMPTS=s;DEFAULT_PROMPTS.forEach((d,i)=>{if(!seen.includes(d.id)&&!PROMPTS.some(p=>p.id===d.id))PROMPTS.splice(Math.min(i,PROMPTS.length),0,JSON.parse(JSON.stringify(d)))})}
+  else PROMPTS=JSON.parse(JSON.stringify(DEFAULT_PROMPTS));
+  store.set('promptsSeen',DEFAULT_PROMPTS.map(d=>d.id));savePrompts();curPrompt=PROMPTS[0].id}
 function renderPrompts(){const p=curP();curPrompt=p.id;
   $('#pList').innerHTML=PROMPTS.map(x=>`<button data-p="${esc(x.id)}" aria-pressed="${x.id===p.id}">${esc(x.name||'未命名')}</button>`).join('');
   $$('[data-p]').forEach(b=>b.addEventListener('click',()=>{curPrompt=b.dataset.p;aiPending=[];$('#aiResult').innerHTML='';renderPrompts()}));
@@ -578,12 +756,13 @@ function ctxValue(n){const fm=parseFields(P.template);
    case '圖片清單':return P.images.map(i=>'- '+i.key+'（'+i.file+'，'+i.w+'×'+i.h+'）').join('\n')||'（沒有圖片）';
    case '素材':return $('#aiMat').value.trim()||'（未提供）';
    case '額外要求':return $('#aiExtra').value.trim()||'（無）';
+   case '名單表格':{if(!P.roster.sources.length)return '（沒有名單資料）';const R=P.roster;const {rows}=computeRoster();return ['判定',...R.fields,'注記'].join('\t')+'\n'+rows.map(r=>[ST_LABEL[r.st][0],...R.fields.map(x=>(r.f[x]||'').replace(/\n/g,' / ')),r.notes.join('；')].join('\t')).join('\n')}
    case '稿件名稱':return P.name||'';
    case '今天':{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
    default:return null}}
 function changesText(){const e=envCur();let base=e.ver&&verById(e.ver),label;if(base)label=e.name+' 上的 v'+base.no;else{base=latest();label=base?'v'+base.no:''}
   if(!base)return '（沒有版本紀錄，無法列出差異）';const ch=changesBetween(base,stateOf());if(!ch.length)return '（'+label+' 之後沒有變更）';
-  return '比較基準：'+label+'\n\n'+ch.map(c=>c.type==='field'?'【'+c.key+'】\n原本：'+(c.from||'（空）')+'\n改為：'+(c.to||'（空）'):c.type==='image'?'【圖片 '+c.key+'】'+c.kind:'【版面結構】有調整').join('\n\n')}
+  return '比較基準：'+label+'\n\n'+ch.map(c=>c.type==='field'?'【'+c.key+'】\n原本：'+(c.from||'（空）')+'\n改為：'+(c.to||'（空）'):c.type==='image'?'【圖片 '+c.key+'】'+c.kind:c.type==='roster'?'【名單 '+c.g+'】'+c.kind+' '+c.name+(c.kind==='修改'?'\n'+c.fields.map(x=>'  '+x.f+'：'+(x.from||'（空）')+' → '+(x.to||'（空）')).join('\n'):''):'【版面結構】有調整').join('\n\n')}
 function buildPrompt(p){return p.body.replace(/\[\[(.+?)\]\]/g,(m,n)=>{const v=ctxValue(n.trim());return v===null?m:v})}
 function extractJson(t){const m=t.match(/```(?:json)?\s*([\s\S]*?)```/i);let s=m&&m[1].trim().startsWith('{')?m[1]:null;if(!s){const a=t.indexOf('{'),b=t.lastIndexOf('}');if(a>=0&&b>a)s=t.slice(a,b+1)}if(!s)return null;
   try{return JSON.parse(s)}catch(e){try{return JSON.parse(s.replace(/,\s*([}\]])/g,'$1'))}catch(e2){return null}}}
@@ -620,7 +799,7 @@ function bindAI(){
 
 /* ---------- 事件 ---------- */
 function bind(){
-  $$('.tab').forEach(t=>t.addEventListener('click',()=>{$$('.tab').forEach(x=>x.setAttribute('aria-selected',x===t));['content','nodes','images','template','compare','ai'].forEach(n=>$('#tab-'+n).hidden=n!==t.dataset.tab);if(t.dataset.tab==='compare')renderVers()}));
+  $$('.tab').forEach(t=>t.addEventListener('click',()=>{$$('.tab').forEach(x=>x.setAttribute('aria-selected',x===t));['content','roster','nodes','images','template','compare','ai'].forEach(n=>$('#tab-'+n).hidden=n!==t.dataset.tab);if(t.dataset.tab==='compare')renderVers()}));
   $('#projName').addEventListener('input',e=>{P.name=e.target.value;save()});
   $('#tpl').addEventListener('input',e=>{P.template=e.target.value;save();renderFields();renderImgs();renderEnvs();renderOutput()});
   $('#btnMakeVar').addEventListener('click',()=>{const ta=$('#tpl'),s=ta.selectionStart,e=ta.selectionEnd;const n=$('#newVarName').value.trim();if(s===e){toast('先在模板裡反白要換掉的文字');return}if(!/^[\w\-]+$/.test(n)){toast('變數名稱請用英文、數字或底線');return}
@@ -653,7 +832,7 @@ function bind(){
   [['#mTags','tags'],['#mOwner','owner'],['#mDue','due']].forEach(([s,k])=>$(s).addEventListener('input',e=>{P.meta[k]=e.target.value;save()}));
 }
 
-(async function init(){bind();bindAI();await store.open();await loadPrompts();renderPrompts();
+(async function init(){bind();bindAI();bindRoster();await store.open();await loadPrompts();renderPrompts();
   const idx=await store.get('index');
   if(Array.isArray(idx)&&idx.length){LIB=idx;const cur=await store.get('current');const ok=await openProj(LIB.some(x=>x.id===cur)?cur:LIB[0].id);if(!ok){seed();P=normalize(P);curEnv=P.envs[0].id;$('#tpl').value=P.template;refreshAll();await saveNow()}else $('#saveState').textContent='已載入本機資料'}
   else{const old=await store.get('project');if(old&&typeof old.template==='string')P=normalize(old);else{seed();P=normalize(P)}curEnv=P.envs[0].id;$('#tpl').value=P.template;refreshAll();await saveNow()}
