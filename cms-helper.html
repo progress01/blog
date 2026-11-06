@@ -1,0 +1,662 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>多環境上稿助手</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* 版面：左側編輯（內容/圖片/模板/比對），右側各環境狀態與輸出；手機時上下堆疊 */
+:root{
+  --bg:#eef1f0; --panel:#ffffff; --ink:#1d2a2c; --muted:#5f6f71; --line:#d3dbda;
+  --accent:#0f6b66; --accent-ink:#ffffff; --soft:#e2eeec;
+  --ok:#2e7d4f; --warn:#a15c07; --bad:#b3261e; --ins:#d7f0dd; --del:#f8d9d6; --code:#f5f7f7;
+  --f-display:"Noto Serif TC","Songti TC","PMingLiU",serif;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --f-mono:ui-monospace,"Cascadia Mono",Consolas,"Courier New",monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a1b; --panel:#1c2425; --ink:#e3eaea; --muted:#97a6a7; --line:#2f3b3c;
+  --accent:#4fb3aa; --accent-ink:#0b1414; --soft:#203230;
+  --ok:#6cc58f; --warn:#e3a14a; --bad:#f08a80; --ins:#1f4a2c; --del:#5a2522; --code:#151c1d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a1b; --panel:#1c2425; --ink:#e3eaea; --muted:#97a6a7; --line:#2f3b3c;
+  --accent:#4fb3aa; --accent-ink:#0b1414; --soft:#203230;
+  --ok:#6cc58f; --warn:#e3a14a; --bad:#f08a80; --ins:#1f4a2c; --del:#5a2522; --code:#151c1d; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.6;margin:0}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px;max-width:1440px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header.top{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:0}
+.brand h1{font-family:var(--f-display);font-size:22px;margin:0;text-wrap:balance;letter-spacing:.02em}
+.brand .sub{color:var(--muted);font-size:12.5px}
+#projName{font:inherit;font-weight:500;border:1px solid transparent;background:transparent;color:var(--ink);padding:2px 6px;border-radius:6px;min-width:0;width:min(420px,100%)}
+#projName:hover,#projName:focus{border-color:var(--line);background:var(--panel)}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,.btn{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 12px;border-radius:7px;cursor:pointer;line-height:1.4}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:500}
+button.danger{color:var(--bad)}
+button.armed{background:var(--bad);color:#fff;border-color:var(--bad)}
+.save-state{font-size:12px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0}
+.panel-h{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.panel-h h2{font-size:15px;margin:0;font-weight:700}
+.panel-b{padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tab{border:none;background:transparent;padding:6px 12px;border-radius:6px;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--soft);color:var(--ink);font-weight:500}
+label.fl{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:12.5px;font-weight:500;letter-spacing:.03em;color:var(--muted)}
+label.fl code{font-family:var(--f-mono);color:var(--ink);font-size:12.5px}
+input[type=text],input[type=number],textarea,select{font:inherit;color:var(--ink);background:var(--code);border:1px solid var(--line);border-radius:7px;padding:8px 10px;width:100%;min-width:0}
+textarea{resize:vertical;min-height:72px}
+textarea.mono,.mono{font-family:var(--f-mono);font-size:12.5px;line-height:1.55}
+.field{display:flex;flex-direction:column;gap:5px}
+.chip{display:inline-block;font-size:11px;padding:1px 8px;border-radius:99px;border:1px solid currentColor;font-weight:500;letter-spacing:.02em;white-space:nowrap}
+.chip.changed{color:var(--warn)} .chip.ok{color:var(--ok)} .chip.bad{color:var(--bad)} .chip.mute{color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.hint{color:var(--muted);font-size:12.5px;margin:0}
+.envs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:640px){.envs{grid-template-columns:minmax(0,1fr)}}
+.env{border:1px solid var(--line);border-radius:9px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0;cursor:pointer;background:var(--panel)}
+.env[aria-current="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.env .name{font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.env .st{font-size:12.5px;color:var(--muted);min-height:2.6em}
+.env input{font-size:12px;padding:5px 8px;font-family:var(--f-mono)}
+.env .row button{font-size:12px;padding:4px 9px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{border:none;border-radius:0;padding:5px 11px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+#out{min-height:260px}
+.warns{display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+.warns .w{color:var(--warn)} .warns .e{color:var(--bad)}
+iframe#pv{width:100%;height:420px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.drop{border:1.5px dashed var(--line);border-radius:9px;padding:18px;text-align:center;color:var(--muted)}
+.drop.over{border-color:var(--accent);background:var(--soft)}
+.imgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.img{border:1px solid var(--line);border-radius:9px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.img .th{aspect-ratio:16/10;background:var(--code) center/contain no-repeat;max-width:100%}
+.img .meta{padding:8px;display:flex;flex-direction:column;gap:6px;font-size:12px}
+.img .meta input{font-family:var(--f-mono);font-size:12px;padding:4px 6px}
+.img .meta .row button{font-size:11.5px;padding:3px 8px}
+.diff{font-family:var(--f-body);font-size:13px;line-height:1.75;background:var(--code);border:1px solid var(--line);border-radius:7px;padding:10px;white-space:pre-wrap;word-break:break-word;overflow-x:auto}
+.diff ins{background:var(--ins);text-decoration:none;border-radius:3px}
+.diff del{background:var(--del);border-radius:3px}
+.diff .gap{color:var(--muted)}
+.change{border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px}
+.change:first-child{border-top:none;padding-top:0}
+.change .h{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center}
+.change .h code{font-family:var(--f-mono);font-weight:500}
+.vers{display:flex;flex-direction:column;gap:6px}
+.ver{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;padding:6px 0;border-bottom:1px dashed var(--line)}
+.ver b{font-family:var(--f-mono)}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+@media (max-width:640px){.two{grid-template-columns:minmax(0,1fr)}}
+.toast{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;z-index:50}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:40}
+.modal .box{background:var(--panel);border-radius:10px;border:1px solid var(--line);width:min(760px,100%);max-height:90vh;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+details.help summary{cursor:pointer;color:var(--muted);font-size:12.5px}
+details.help ul{margin:6px 0 0;padding-left:20px;color:var(--muted);font-size:12.5px}
+code.k{font-family:var(--f-mono);background:var(--code);border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:12px}
+.pchips{display:flex;flex-wrap:wrap;gap:6px}
+.pchips button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.mini{font-size:12px!important;padding:3px 9px!important;border-radius:99px!important;color:var(--muted)}
+.notes{margin:0;padding-left:20px;color:var(--warn);font-size:13px}
+.change .h label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.lib{display:flex;flex-direction:column}
+.libr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center;padding:10px 4px;border-top:1px solid var(--line);cursor:pointer}
+.libr:first-child{border-top:none}
+.libr:hover{background:var(--soft)}
+.libr[aria-current="true"] .ln b{color:var(--accent)}
+.libr .ln{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0}
+.libr .lm{grid-column:1/2;font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.libr .row{grid-row:1/3;grid-column:2}
+.libr .row button{font-size:12px;padding:3px 9px}
+@media (max-width:640px){.libr{grid-template-columns:minmax(0,1fr)}.libr .row{grid-row:auto;grid-column:1}}
+fieldset.node{border:1px solid var(--line);border-radius:9px;padding:10px 12px 12px;margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+fieldset.node legend{font-weight:700;padding:0 6px}
+.env .links{display:flex;gap:10px;font-size:12px}
+.env .links a{color:var(--accent)}
+.env .np{font-size:12px;color:var(--muted);word-break:break-all}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>多環境上稿助手</h1>
+      <input id="projName" type="text" aria-label="稿件名稱" value="">
+      <span class="sub">一份稿源，產出公司機、測試機、正式機三份可直接貼進 CKEditor 原始碼模式的 HTML。不需登入、不連網，資料只存在這台電腦的瀏覽器。</span>
+    </div>
+    <div class="actions">
+      <span id="saveState" class="save-state">—</span>
+      <button id="btnLib" class="primary">稿件清單</button>
+      <button id="btnExport">匯出</button>
+      <button id="btnImport">匯入</button>
+    </div>
+  </header>
+
+  <section class="panel" id="libPanel" hidden>
+    <div class="panel-h"><h2>稿件清單</h2>
+      <div class="row">
+        <input id="libSearch" type="text" placeholder="搜尋名稱、標籤、CMS 節點、承辦人、內文…" style="width:min(340px,100%)" aria-label="搜尋稿件">
+        <select id="libFilter" style="width:auto" aria-label="篩選"><option value="">全部</option><option value="need">有環境需要更新</option><option value="none">還沒上稿</option></select>
+        <button id="libNew">新增空白稿件</button>
+      </div>
+    </div>
+    <div class="panel-b"><p class="hint" id="libCount"></p><div id="libList" class="lib"></div></div>
+  </section>
+
+  <div class="grid">
+    <!-- 左側 -->
+    <section class="panel">
+      <div class="panel-h">
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" data-tab="content" aria-selected="true">內容</button>
+          <button class="tab" role="tab" data-tab="nodes" aria-selected="false">CMS 節點</button>
+          <button class="tab" role="tab" data-tab="images" aria-selected="false">圖片</button>
+          <button class="tab" role="tab" data-tab="template" aria-selected="false">模板</button>
+          <button class="tab" role="tab" data-tab="compare" aria-selected="false">版本與比對</button>
+          <button class="tab" role="tab" data-tab="ai" aria-selected="false">AI 協作</button>
+        </div>
+      </div>
+
+      <div class="panel-b" id="tab-content">
+        <div class="row">
+          <input id="verLabel" type="text" placeholder="版本說明，例如：電腦公會 11/06 23:00 修正議程" style="flex:1;min-width:200px">
+          <button id="btnSnap" class="primary">存成新版本</button>
+        </div>
+        <p class="hint" id="snapHint"></p>
+        <div id="fields" class="panel-b" style="padding:0"></div>
+        <label class="row" style="font-size:12.5px;color:var(--muted)"><input type="checkbox" id="nl2br"> 純文字欄位的換行自動轉成 &lt;br&gt;</label>
+      </div>
+
+      <div class="panel-b" id="tab-nodes" hidden>
+        <p class="hint">記下這份稿件在各環境 CMS 後台的位置。搜尋稿件時也會搜到這些資訊；填了網址，右側環境卡片會出現「開後台」「看前台」連結。</p>
+        <div class="two">
+          <div class="field"><label class="fl" for="mTags">標籤 <span>用逗號分隔</span></label><input id="mTags" type="text" placeholder="例如：氣候署, COP31, 新聞稿"></div>
+          <div class="field"><label class="fl" for="mOwner">承辦人／窗口</label><input id="mOwner" type="text" placeholder="例如：氣候署 王承辦"></div>
+        </div>
+        <div class="field"><label class="fl" for="mDue">上線時間／截稿</label><input id="mDue" type="text" placeholder="例如：11/9（一）08:00 前上正式機"></div>
+        <div id="nodeForms" class="panel-b" style="padding:0"></div>
+      </div>
+
+      <div class="panel-b" id="tab-images" hidden>
+        <div class="drop" id="drop">
+          把會議照片拖進來，或 <button id="btnPick">選擇圖片</button>
+          <input type="file" id="filePick" accept="image/*" multiple hidden>
+          <p class="hint" style="margin-top:6px">超過設定寬度會自動縮圖壓縮。圖片代號用在模板裡，例如 <code class="k">{{img:cop31-01}}</code>。</p>
+        </div>
+        <div class="row">
+          <label class="fl" for="maxW">最大寬度</label><input id="maxW" type="number" min="400" max="4000" step="100" style="width:100px">
+          <label class="fl" for="quality">JPEG 品質</label><input id="quality" type="number" min="0.5" max="1" step="0.05" style="width:90px">
+          <button id="btnZip">下載全部圖片 ZIP</button>
+        </div>
+        <div class="warns" id="imgWarns"></div>
+        <div class="imgs" id="imgs"></div>
+      </div>
+
+      <div class="panel-b" id="tab-template" hidden>
+        <p class="hint">貼上 CKEditor 原始碼模式裡的 HTML，把會變動的地方換成變數。語法跟部落格工具相同：<code class="k">{{title}}</code>、<code class="k">{{title|預設值}}</code>；圖片用 <code class="k">{{img:代號}}</code>；環境路徑用 <code class="k">{{BASE}}</code>。</p>
+        <div class="row">
+          <button id="btnMakeVar">把反白處轉成變數</button>
+          <input id="newVarName" type="text" placeholder="變數名稱（英數）" style="width:180px">
+        </div>
+        <textarea id="tpl" class="mono" style="min-height:360px" spellcheck="false"></textarea>
+        <details class="help"><summary>建議用 HTML 註解標出區塊</summary>
+          <ul>
+            <li>例如 <code class="k">&lt;!-- 區塊:議程 --&gt;</code>。改稿時在 CKEditor 原始碼裡 Ctrl+F 找這行，就能直接定位。</li>
+            <li>變數名稱建議用英文，例如 agenda、photo1_alt。</li>
+          </ul>
+        </details>
+      </div>
+
+      <div class="panel-b" id="tab-compare" hidden>
+        <h3 style="margin:0;font-size:14px">版本紀錄</h3>
+        <div class="vers" id="vers"></div>
+        <div class="row">
+          <label class="fl" for="cmpFrom">從</label><select id="cmpFrom" style="width:auto"></select>
+          <label class="fl" for="cmpTo">到</label><select id="cmpTo" style="width:auto"></select>
+          <button id="btnCmpVer">比對兩個版本</button>
+        </div>
+        <div id="verDiff"></div>
+        <h3 style="margin:8px 0 0;font-size:14px">貼上比對</h3>
+        <p class="hint">電腦公會傳來新稿時，把上次確認的版本和新版本各貼一邊，直接看出改了哪些字。</p>
+        <div class="two">
+          <textarea id="cmpA" placeholder="舊版（上次確認）" style="min-height:140px"></textarea>
+          <textarea id="cmpB" placeholder="新版（最新收到）" style="min-height:140px"></textarea>
+        </div>
+        <div class="row"><button id="btnCmpText" class="primary">比對</button></div>
+        <div id="textDiff"></div>
+      </div>
+
+      <div class="panel-b" id="tab-ai" hidden>
+        <p class="hint">這裡不連任何 AI 服務。工具把稿件資料組成提示詞，你複製到慣用的 AI（ChatGPT、Claude、Gemini 等）對話裡；AI 回覆後貼回來，工具會列出要改的欄位，讓你逐一勾選套用。貼到外部 AI 前，請先確認機關對資料保密與生成式 AI 的使用規定。</p>
+        <div class="pchips" id="pList" role="group" aria-label="提示詞"></div>
+        <p class="hint" id="pDesc"></p>
+        <div class="field" id="matBox"><label class="fl" for="aiMat">素材 <span>電腦公會傳來的新稿、Word 內容等</span></label><textarea id="aiMat" rows="5"></textarea></div>
+        <div class="field"><label class="fl" for="aiExtra">額外要求 <span>這次想要的方向或變化，可留空；點下面的標籤會加進來</span></label><textarea id="aiExtra" rows="2"></textarea>
+          <div class="row" id="extraChips"></div></div>
+        <div class="row"><button id="btnGenPrompt" class="primary">產生提示詞並複製</button><span class="hint" id="promptLen"></span></div>
+        <textarea id="aiPrompt" class="mono" readonly rows="7" aria-label="產生的提示詞" placeholder="按上面的按鈕產生提示詞"></textarea>
+        <div class="field"><label class="fl" for="aiReply">貼回 AI 的回覆</label><textarea id="aiReply" rows="6" placeholder="把 AI 的整段回覆貼在這裡，工具會自己找出 JSON"></textarea></div>
+        <div class="row"><button id="btnParse" class="primary">解析回覆</button></div>
+        <div id="aiResult"></div>
+        <details class="help" id="pEditWrap"><summary>編輯提示詞（可改、可新增自己的）</summary>
+          <div class="panel-b" style="padding:10px 0 0">
+            <div class="two">
+              <div class="field"><label class="fl" for="pName">名稱</label><input id="pName" type="text"></div>
+              <div class="field"><label class="fl" for="pExpect">AI 回覆類型</label><select id="pExpect"><option value="fields">欄位修改（JSON，可套用）</option><option value="text">文字（直接在 AI 那邊使用）</option></select></div>
+            </div>
+            <div class="field"><label class="fl" for="pDescIn">說明</label><input id="pDescIn" type="text"></div>
+            <div class="field"><label class="fl" for="pBody">提示詞內容</label><textarea id="pBody" class="mono" rows="12" spellcheck="false"></textarea></div>
+            <div class="row" id="phChips"></div>
+            <p class="hint">點上面的標籤，會在游標位置插入資料欄位。產生提示詞時，它們會換成這份稿件的實際內容。</p>
+            <div class="row"><button id="pAdd">新增提示詞</button><button id="pDup">複製這個提示詞</button><button id="pDel" class="danger">刪除這個提示詞</button><button id="pReset" class="danger">還原預設提示詞</button></div>
+            <div class="row"><button id="pExport">匯出提示詞</button><button id="pImport">匯入提示詞</button></div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- 右側 -->
+    <section class="panel">
+      <div class="panel-h"><h2>上稿狀態與輸出</h2>
+        <div class="seg" role="group" aria-label="圖片輸出方式">
+          <button id="modePath" aria-pressed="true">圖片用路徑</button>
+          <button id="modeInline" aria-pressed="false">圖片內嵌 base64</button>
+        </div>
+      </div>
+      <div class="panel-b">
+        <div class="envs" id="envs"></div>
+        <div id="changes"></div>
+        <div class="row">
+          <button id="btnCopy" class="primary">複製 <span id="curEnvName"></span> HTML</button>
+          <button id="btnPreview">預覽</button>
+          <button id="btnDl">下載 .html</button>
+        </div>
+        <div class="warns" id="outWarns"></div>
+        <textarea id="out" class="mono" readonly spellcheck="false" aria-label="輸出的 HTML"></textarea>
+        <iframe id="pv" title="預覽" hidden></iframe>
+        <p class="hint">預覽一律用內嵌圖片顯示。「圖片內嵌 base64」模式請先在公司機測一次：看 CMS 存檔後是保留 base64、自動轉成上傳檔，還是把圖片濾掉。若 CMS 原樣保留 base64，正式機請改用「圖片用路徑」，避免頁面過重與無障礙檢測的不確定性。</p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="box">
+    <div class="row" style="justify-content:space-between"><h2 id="mTitle" style="margin:0;font-size:16px"></h2><button id="mClose">關閉</button></div>
+    <p class="hint" id="mHint"></p>
+    <textarea id="mText" class="mono" style="min-height:280px" spellcheck="false"></textarea>
+    <div class="row" id="mBtns"></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const fmtTime=t=>{const d=new Date(t);return (d.getMonth()+1)+'/'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+let P=null, curEnv='company', mode='path';
+
+/* ---------- 儲存（IndexedDB，失敗則只在記憶體） ---------- */
+const store={db:null,
+  open(){return new Promise(res=>{try{const r=indexedDB.open('shanggao-helper',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>{this.db=r.result;res(true)};r.onerror=()=>res(false);r.onblocked=()=>res(false)}catch(e){res(false)}})},
+  get(k){return new Promise(res=>{if(!this.db)return res(null);try{const q=this.db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null)}catch(e){res(null)}})},
+  set(k,v){return new Promise(res=>{if(!this.db)return res(false);try{const t=this.db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=()=>res(true);t.onerror=()=>res(false);t.onabort=()=>res(false)}catch(e){res(false)}})},
+  del(k){return new Promise(res=>{if(!this.db)return res(false);try{const t=this.db.transaction('kv','readwrite');t.objectStore('kv').delete(k);t.oncomplete=()=>res(true);t.onerror=()=>res(false)}catch(e){res(false)}})}
+};
+/* 稿件庫：index 存清單摘要，proj:<id> 存每份稿件；記憶體備援 */
+let LIB=[];const MEM={};
+async function sGet(k){const v=await store.get(k);return v!==null?v:(MEM[k]||null)}
+async function sSet(k,v){MEM[k]=v;return store.set(k,v)}
+let saveTimer=null,dirty=false;
+function save(){dirty=true;clearTimeout(saveTimer);$('#saveState').textContent='儲存中…';saveTimer=setTimeout(saveNow,400)}
+function libEntry(){const cur=stateOf();const m=P.meta||{};
+  const envs=P.envs.map(e=>{const v=e.ver&&verById(e.ver);return{name:e.name,no:v?v.no:0,need:v?changesBetween(v,cur).length>0:false}});
+  const st=[P.name,m.tags,m.owner,m.due,...P.envs.map(e=>{const n=e.node||{};return [e.name,n.path,n.id,n.admin,n.front,n.note].join(' ')}),...Object.values(P.values)].join(' ').toLowerCase().slice(0,30000);
+  return{id:P.id,name:P.name,tags:m.tags||'',owner:m.owner||'',due:m.due||'',updated:Date.now(),envs,search:st}}
+async function saveNow(){clearTimeout(saveTimer);if(!P)return;dirty=false;const ok=await sSet('proj:'+P.id,JSON.parse(JSON.stringify(P)));
+  const en=libEntry();const i=LIB.findIndex(x=>x.id===P.id);if(i>=0)LIB[i]=en;else LIB.unshift(en);LIB.sort((a,b)=>b.updated-a.updated);
+  await sSet('index',LIB);await sSet('current',P.id);
+  $('#saveState').textContent=ok?'已存在本機 '+fmtTime(Date.now()):'無法存在瀏覽器，請記得匯出';$('#saveState').style.color=ok?'':'var(--bad)';
+  $('#btnLib').textContent='稿件清單（'+LIB.length+'）';if(!$('#libPanel').hidden)renderLib()}
+function normalize(p){p.id=p.id||uid();p.meta=p.meta||{tags:'',owner:'',due:''};p.images=p.images||[];p.values=p.values||{};p.versions=p.versions||[];
+  p.envs=(p.envs&&p.envs.length?p.envs:[{id:'company',name:'公司機',base:'/upload/'},{id:'test',name:'測試機',base:'/upload/'},{id:'prod',name:'正式機',base:'/upload/'}]).map(e=>Object.assign({ver:null,at:null},e,{node:Object.assign({path:'',id:'',admin:'',front:'',note:''},e.node||{})}));
+  if(p.maxW===undefined)p.maxW=1600;if(p.quality===undefined)p.quality=0.85;if(p.nl2br===undefined)p.nl2br=true;return p}
+async function openProj(id){if(dirty)await saveNow();const p=await sGet('proj:'+id);if(!p){toast('找不到這份稿件的資料');return false}
+  P=normalize(p);curEnv=P.envs[0].id;$('#tpl').value=P.template;aiPending=[];$('#aiResult').innerHTML='';refreshAll();await sSet('current',P.id);return true}
+async function newProj(p,msg){if(dirty)await saveNow();P=normalize(p);curEnv=P.envs[0].id;$('#tpl').value=P.template;refreshAll();await saveNow();if(msg)toast(msg)}
+
+/* 稿件清單畫面 */
+function renderLib(){const q=$('#libSearch').value.trim().toLowerCase().split(/\s+/).filter(Boolean);const f=$('#libFilter').value;
+  const list=LIB.filter(x=>q.every(t=>x.search.includes(t)||(x.name||'').toLowerCase().includes(t))).filter(x=>!f||(f==='need'?x.envs.some(e=>e.need):x.envs.every(e=>!e.no)));
+  $('#libCount').textContent=(q.length||f)?'找到 '+list.length+' 份（共 '+LIB.length+' 份）':'共 '+LIB.length+' 份稿件，點一下開啟';
+  $('#libList').innerHTML=list.map(x=>`<div class="libr" data-open="${esc(x.id)}" aria-current="${x.id===P.id}" tabindex="0">
+    <div class="ln"><b>${esc(x.name||'未命名')}</b>${(x.tags||'').split(/[,，、]/).map(t=>t.trim()).filter(Boolean).map(t=>'<span class="chip mute">'+esc(t)+'</span>').join('')}</div>
+    <div class="lm"><span>更新 ${fmtTime(x.updated)}</span>${x.owner?'<span>· '+esc(x.owner)+'</span>':''}${x.due?'<span>· '+esc(x.due)+'</span>':''}${x.envs.map(e=>'<span class="chip '+(e.no?(e.need?'changed':'ok'):'mute')+'">'+esc(e.name)+(e.no?' v'+e.no+(e.need?' 需更新':''):' 未上')+'</span>').join('')}</div>
+    <div class="row"><button data-dup="${esc(x.id)}">複製成新稿件</button><button class="danger" data-ldel="${esc(x.id)}">刪除</button></div></div>`).join('')||'<p class="hint">沒有符合的稿件。</p>';
+  $$('[data-open]').forEach(el=>{const go=async ev=>{if(ev.target.closest('button'))return;if(el.dataset.open===P.id){$('#libPanel').hidden=true;return}if(await openProj(el.dataset.open)){$('#libPanel').hidden=true;toast('已開啟「'+P.name+'」')}};el.addEventListener('click',go);el.addEventListener('keydown',ev=>{if(ev.key==='Enter')go(ev)})});
+  $$('[data-dup]').forEach(b=>b.addEventListener('click',async()=>{if(dirty)await saveNow();const src=await sGet('proj:'+b.dataset.dup);if(!src)return;const c=JSON.parse(JSON.stringify(src));c.id=uid();c.name=(c.name||'未命名')+'（複本）';c.versions=[];c.envs.forEach(e=>{e.ver=null;e.at=null;e.node={path:e.node?e.node.path:'',id:'',admin:'',front:'',note:''}});
+    await newProj(c,'已複製成新稿件，版本紀錄和節點 ID 已清空');renderLib()}));
+  $$('[data-ldel]').forEach(b=>armed(b,async()=>{const id=b.dataset.ldel;LIB=LIB.filter(x=>x.id!==id);await store.del('proj:'+id);delete MEM['proj:'+id];await sSet('index',LIB);
+    if(id===P.id){if(LIB.length)await openProj(LIB[0].id);else await newProj(blankProject(P.envs),'已刪除，並開了一份新的空白稿件')}$('#btnLib').textContent='稿件清單（'+LIB.length+'）';renderLib();toast('已刪除')}));
+}
+
+/* CMS 節點畫面 */
+function renderNodes(){const m=P.meta;$('#mTags').value=m.tags||'';$('#mOwner').value=m.owner||'';$('#mDue').value=m.due||'';
+  $('#nodeForms').innerHTML=P.envs.map(e=>{const n=e.node;const f=(k,l,ph)=>`<div class="field"><label class="fl" for="n-${e.id}-${k}">${l}</label><input id="n-${e.id}-${k}" type="text" data-node="${e.id}" data-k="${k}" value="${esc(n[k]||'')}" placeholder="${esc(ph)}"></div>`;
+    return `<fieldset class="node"><legend>${esc(e.name)}</legend>${f('path','後台位置','例如：首頁 > 新聞與公告 > 新聞稿')}<div class="two">${f('id','節點／文章 ID','例如：12345')}${f('note','備註','例如：要勾選「置頂」')}</div>${f('admin','後台編輯網址','貼上 CMS 編輯畫面的網址')}${f('front','前台網址','上稿後的頁面網址')}</fieldset>`}).join('');
+  $$('[data-node]').forEach(el=>el.addEventListener('input',()=>{P.envs.find(x=>x.id===el.dataset.node).node[el.dataset.k]=el.value;save();renderEnvs()}))}
+const safeUrl=u=>/^(https?:)?\/\//i.test(u)||/^\//.test(u)?u:(u?'http://'+u:'');
+
+/* ---------- 範例資料 ---------- */
+const SAMPLE_TPL=`<!-- 區塊:標題 -->
+<h2>{{title}}</h2>
+<p class="news-date">{{date}}｜{{place}}</p>
+
+<!-- 區塊:導言 -->
+<p>{{intro}}</p>
+
+<!-- 區塊:主視覺 -->
+<p><img src="{{img:cop31-main}}" alt="{{main_alt}}" style="width:100%"></p>
+
+<!-- 區塊:議程 -->
+<h3>會議議程</h3>
+{{agenda}}
+
+<!-- 區塊:會議照片 -->
+<p><img src="{{img:cop31-01}}" alt="{{photo1_alt}}" style="width:48%"> <img src="{{img:cop31-02}}" alt="{{photo2_alt}}" style="width:48%"></p>
+
+<!-- 區塊:聯絡窗口 -->
+<p>新聞聯絡人：{{contact|（請填入）}}</p>`;
+function sampleImage(label,hue){const c=document.createElement('canvas');c.width=1200;c.height=750;const g=c.getContext('2d');const gr=g.createLinearGradient(0,0,1200,750);gr.addColorStop(0,`hsl(${hue},45%,38%)`);gr.addColorStop(1,`hsl(${hue+30},40%,62%)`);g.fillStyle=gr;g.fillRect(0,0,1200,750);g.fillStyle='rgba(255,255,255,.9)';g.font='bold 64px sans-serif';g.textAlign='center';g.fillText(label,600,390);g.font='32px sans-serif';g.fillText('範例圖片，請換成實際照片',600,450);return c.toDataURL('image/jpeg',0.8)}
+function seed(){
+  const imgs=[['cop31-main','主視覺',175],['cop31-01','會議照片 1',200],['cop31-02','會議照片 2',140]].map(([k,l,h])=>{const d=sampleImage(l,h);return{key:k,file:k+'.jpg',data:d,w:1200,h:750,size:Math.round(d.length*0.75)}});
+  P={id:uid(),name:'【範例】COP31 周邊會議新聞稿',template:SAMPLE_TPL,nl2br:true,maxW:1600,quality:0.85,meta:{tags:'範例, COP31, 新聞稿',owner:'（範例）承辦人',due:'（範例）週一上午上正式機'},
+    envs:[{id:'company',name:'公司機',base:'/upload/cop31/',ver:null,at:null,node:{path:'（範例）最新消息 > 新聞稿',id:'',admin:'',front:'',note:''}},{id:'test',name:'測試機',base:'/test/upload/cop31/',ver:null,at:null},{id:'prod',name:'正式機',base:'/upload/cop31/',ver:null,at:null}],
+    images:imgs,
+    values:{title:'【範例】COP31 周邊會議活動紀實',date:'2026-11-09',place:'（範例）會議地點',intro:'這是範例導言。實際內容請換成承辦人確認後的文字。',main_alt:'範例主視覺',
+      agenda:'<ul>\n<li>09:30 報到</li>\n<li>10:00 開幕致詞</li>\n<li>10:30 專題座談</li>\n</ul>',photo1_alt:'範例照片一',photo2_alt:'範例照片二'},
+    versions:[]};
+  const v=snapshot('第一版（範例）');
+  P.envs[0].ver=v.id;P.envs[0].at=Date.now();P.envs[1].ver=v.id;P.envs[1].at=Date.now();
+  // 模擬電腦公會又改了資料
+  P.values.agenda='<ul>\n<li>09:30 報到</li>\n<li>10:00 開幕致詞</li>\n<li>10:20 合影</li>\n<li>10:40 專題座談</li>\n</ul>';
+  P.values.intro='這是範例導言（已依電腦公會 11/06 版本修正）。實際內容請換成承辦人確認後的文字。';
+}
+function blankProject(keepEnvs){return{id:uid(),meta:{tags:'',owner:'',due:''},name:'未命名稿件',template:'<!-- 區塊:標題 -->\n<h2>{{title}}</h2>\n\n<!-- 區塊:內文 -->\n<p>{{content}}</p>\n',nl2br:true,maxW:P?P.maxW:1600,quality:P?P.quality:0.85,
+  envs:keepEnvs.map(e=>({id:e.id,name:e.name,base:e.base,ver:null,at:null,node:{path:'',id:'',admin:'',front:'',note:''}})),images:[],values:{},versions:[]}}
+
+/* ---------- 模板解析與產出 ---------- */
+const FIELD_RE=/{{\s*([^}|:]+?)\s*(?:\|([^}]*))?}}/g, IMG_RE=/{{\s*img:([\w\-.]+)\s*}}/g;
+function parseFields(tpl){const m=new Map();let r;FIELD_RE.lastIndex=0;while((r=FIELD_RE.exec(tpl))){const n=r[1].trim();if(n==='BASE')continue;if(!m.has(n))m.set(n,(r[2]||'').trim())}return m}
+function parseImgs(tpl){const s=new Set();let r;IMG_RE.lastIndex=0;while((r=IMG_RE.exec(tpl)))s.add(r[1]);return s}
+function joinBase(b,f){if(!b)return f;return b.endsWith('/')?b+f:b+'/'+f}
+function fieldValue(n,def){let v=P.values[n];if(v===undefined||v==='')v=def||'';return v}
+function render(env,m,preview){
+  const warns=[];
+  let out=P.template.replace(IMG_RE,(x,k)=>{const im=P.images.find(i=>i.key===k);if(!im){warns.push(['e','模板用到 '+k+'，但圖片區沒有這張圖']);return '[缺圖:'+k+']'}return (preview||m==='inline')?im.data:joinBase(env.base,im.file)});
+  out=out.replace(/{{\s*BASE\s*}}/g,env.base||'');
+  out=out.replace(FIELD_RE,(x,n,d)=>{n=n.trim();let v=fieldValue(n,(d||'').trim());if(v==='')warns.push(['w','欄位 '+n+' 是空的']);if(P.nl2br&&v.includes('\n')&&!/<[a-z][\s\S]*>/i.test(v))v=v.replace(/\r?\n/g,'<br>\n');return v});
+  if(!preview){const tags=out.match(/<img\b[^>]*>/gi)||[];tags.forEach((t,i)=>{const a=t.match(/\balt\s*=\s*("([^"]*)"|'([^']*)')/i);const label='第 '+(i+1)+' 張圖片';if(!a)warns.push(['e','無障礙：'+label+'沒有 alt 屬性']);else{const v=(a[2]!==undefined?a[2]:a[3]||'').trim();if(!v)warns.push(['w','無障礙：'+label+'的 alt 是空的（純裝飾圖才可以留空）']);else if(/\.(jpe?g|png|gif|webp)$/i.test(v)||/^(img|image|圖片|照片|photo|dsc|img_)\d*$/i.test(v))warns.push(['w','無障礙：'+label+'的 alt「'+v+'」看起來像檔名，請改成描述圖片內容'])}})}
+  if(m==='inline'&&!preview){const kb=Math.round(out.length/1024);if(kb>1500)warns.push(['w','內嵌後 HTML 約 '+kb+' KB，部分 CMS 可能存不進去，可以把最大寬度調小'])}
+  return {html:out,warns};
+}
+
+/* ---------- 版本 ---------- */
+function imgSig(){const o={};P.images.forEach(i=>o[i.key]=i.file+'|'+i.data.length+'|'+i.data.slice(-32));return o}
+function cleanVals(v){const o={};Object.keys(v).sort().forEach(k=>{if(v[k]!==''&&v[k]!==undefined)o[k]=v[k]});return o}
+function snapshot(label){const last=P.versions[P.versions.length-1];const v={id:uid(),no:(last?last.no:0)+1,time:Date.now(),label:label||'',values:cleanVals(P.values),template:P.template,imgs:imgSig()};P.versions.push(v);return v}
+const verById=id=>P.versions.find(v=>v.id===id);
+function stateOf(){return{values:cleanVals(P.values),template:P.template,imgs:imgSig()}}
+function changesBetween(a,b){ // a,b: {values,template,imgs}
+  const ch=[];const keys=new Set([...Object.keys(a.values),...Object.keys(b.values)]);
+  [...keys].sort().forEach(k=>{const x=a.values[k]||'',y=b.values[k]||'';if(x!==y)ch.push({type:'field',key:k,from:x,to:y})});
+  if(a.template!==b.template)ch.push({type:'template',from:a.template,to:b.template});
+  const ik=new Set([...Object.keys(a.imgs),...Object.keys(b.imgs)]);
+  [...ik].sort().forEach(k=>{const x=a.imgs[k],y=b.imgs[k];if(x!==y)ch.push({type:'image',key:k,kind:!x?'新增':!y?'刪除':'更換',file:(y||x).split('|')[0]})});
+  return ch;
+}
+const latest=()=>P.versions[P.versions.length-1];
+
+/* ---------- 差異比對（中文逐字、英文逐詞） ---------- */
+function tok(s){return s.match(/[㐀-鿿豈-﫿　-〿＀-￯]|[A-Za-z0-9_]+|\s+|[^\sA-Za-z0-9_㐀-鿿豈-﫿　-〿＀-￯]/g)||[]}
+function diff(a,b){const A=tok(a),B=tok(b);let p=0;while(p<A.length&&p<B.length&&A[p]===B[p])p++;let s=0;while(s<A.length-p&&s<B.length-p&&A[A.length-1-s]===B[B.length-1-s])s++;
+  const a2=A.slice(p,A.length-s),b2=B.slice(p,B.length-s),n=a2.length,m=b2.length;const out=[];const push=(t,v)=>{if(!v)return;const l=out[out.length-1];if(l&&l.t===t)l.v+=v;else out.push({t,v})};
+  push('eq',A.slice(0,p).join(''));
+  if(n*m>4e6){push('del',a2.join(''));push('ins',b2.join(''))}
+  else{const W=m+1,dp=new Int32Array((n+1)*W);for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)dp[i*W+j]=a2[i]===b2[j]?dp[(i+1)*W+j+1]+1:Math.max(dp[(i+1)*W+j],dp[i*W+j+1]);
+    let i=0,j=0;while(i<n&&j<m){if(a2[i]===b2[j]){push('eq',a2[i]);i++;j++}else if(dp[(i+1)*W+j]>=dp[i*W+j+1]){push('del',a2[i]);i++}else{push('ins',b2[j]);j++}}
+    while(i<n)push('del',a2[i++]);while(j<m)push('ins',b2[j++])}
+  push('eq',A.slice(A.length-s).join(''));return out}
+function diffHtml(a,b){const d=diff(a,b);return d.map((x,idx)=>{if(x.t==='ins')return '<ins>'+esc(x.v)+'</ins>';if(x.t==='del')return '<del>'+esc(x.v)+'</del>';let v=x.v;if(v.length>160){const head=idx===0?'':v.slice(0,60),tail=idx===d.length-1?'':v.slice(-60);return esc(head)+'<span class="gap"> …（略 '+(v.length-head.length-tail.length)+' 字）… </span>'+esc(tail)}return esc(v)}).join('')}
+
+/* ---------- 畫面：內容欄位 ---------- */
+let fieldSig='';
+function renderFields(force){const fm=parseFields(P.template);const sig=[...fm.keys()].join('|');if(!force&&sig===fieldSig){updateFieldChips();return}fieldSig=sig;
+  const box=$('#fields');if(!fm.size){box.innerHTML='<p class="hint">模板裡還沒有 {{變數}}。到「模板」分頁貼上 HTML 並設定變數。</p>';return}
+  box.innerHTML=[...fm].map(([n,def])=>{const v=P.values[n]!==undefined?P.values[n]:'';const long=/content|body|intro|agenda|text|desc|list|html/i.test(n)||v.includes('\n')||v.length>60;
+    return `<div class="field"><label class="fl" for="f-${esc(n)}"><code>${esc(n)}</code>${def?'<span>預設：'+esc(def)+'</span>':''}<span class="chip changed" data-chip="${esc(n)}" hidden>與上一版不同</span></label>`+
+    (long?`<textarea id="f-${esc(n)}" data-f="${esc(n)}" rows="4" placeholder="${esc(def)}">${esc(v)}</textarea>`:`<input type="text" id="f-${esc(n)}" data-f="${esc(n)}" value="${esc(v)}" placeholder="${esc(def)}">`)+'</div>'}).join('');
+  $$('#fields [data-f]').forEach(el=>el.addEventListener('input',()=>{P.values[el.dataset.f]=el.value;save();updateFieldChips();renderEnvs();renderOutput()}));
+  updateFieldChips();
+}
+function updateFieldChips(){const l=latest();$$('#fields [data-chip]').forEach(c=>{const n=c.dataset.chip;c.hidden=!l||((l.values[n]||'')===(P.values[n]||''))});
+  const l2=latest();const n=l2?changesBetween(l2,stateOf()).length:0;$('#snapHint').textContent=l2?('最新版本 v'+l2.no+'（'+fmtTime(l2.time)+'）'+(n?'，之後有 '+n+' 處未存成版本的修改':'，目前內容與它相同')):'還沒有版本。上稿給承辦人確認前，先存一個版本。'}
+
+/* ---------- 畫面：圖片 ---------- */
+function renderImgs(){const used=parseImgs(P.template);const box=$('#imgs');
+  box.innerHTML=P.images.map((im,i)=>`<div class="img"><div class="th" style="background-image:url('${im.data}')"></div><div class="meta">
+    <label class="fl" for="ik-${i}">代號 ${used.has(im.key)?'<span class="chip ok">模板有用到</span>':'<span class="chip mute">模板沒用到</span>'}</label>
+    <input id="ik-${i}" type="text" value="${esc(im.key)}" data-ik="${i}">
+    <span class="mono" style="color:var(--muted)">${esc(im.file)} · ${im.w}×${im.h} · ${Math.round(im.size/1024)} KB</span>
+    <div class="row"><button data-copy="${i}">複製 {{img:…}}</button><button class="danger" data-del="${i}">刪除</button></div></div></div>`).join('')||'<p class="hint">還沒有圖片。</p>';
+  $$('[data-ik]').forEach(el=>el.addEventListener('change',()=>{const im=P.images[+el.dataset.ik];const nk=el.value.trim().replace(/[^\w\-.]/g,'-');if(!nk||P.images.some(x=>x!==im&&x.key===nk)){toast('代號重複或空白，已還原');el.value=im.key;return}
+    const old=im.key;im.key=nk;im.file=nk+im.file.slice(im.file.lastIndexOf('.'));P.template=P.template.split('{{img:'+old+'}}').join('{{img:'+nk+'}}');$('#tpl').value=P.template;save();refreshAll();toast('已改名，模板內的引用也一起更新')}));
+  $$('[data-copy]').forEach(b=>b.addEventListener('click',()=>copyText('{{img:'+P.images[+b.dataset.copy].key+'}}')));
+  $$('[data-del]').forEach(b=>armed(b,()=>{P.images.splice(+b.dataset.del,1);save();refreshAll()}));
+  const missing=[...used].filter(k=>!P.images.some(i=>i.key===k));$('#imgWarns').innerHTML=missing.map(k=>'<span class="e">模板用到 '+esc(k)+'，但還沒有這張圖。上傳時把代號改成 '+esc(k)+' 即可。</span>').join('');
+}
+function readImage(file){return new Promise(res=>{const fr=new FileReader();fr.onload=()=>{const img=new Image();img.onload=()=>{const maxW=+P.maxW||1600,q=+P.quality||0.85;let data=fr.result,w=img.width,h=img.height;
+  const isPng=/png/i.test(file.type);if(w>maxW||file.size>400*1024){const s=Math.min(1,maxW/w);w=Math.round(w*s);h=Math.round(h*s);const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');if(!isPng){g.fillStyle='#fff';g.fillRect(0,0,w,h)}g.drawImage(img,0,0,w,h);data=isPng&&file.size<1.5*1024*1024?c.toDataURL('image/png'):c.toDataURL('image/jpeg',q)}
+  res({data,w,h})};img.onerror=()=>res(null);img.src=fr.result};fr.onerror=()=>res(null);fr.readAsDataURL(file)})}
+async function addFiles(files){let n=0;for(const f of files){if(!/^image\//.test(f.type))continue;const r=await readImage(f);if(!r)continue;
+  let base=f.name.replace(/\.[^.]+$/,'').replace(/[^\w\-.]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'')||'img';let key=base,i=2;while(P.images.some(x=>x.key===key))key=base+'-'+(i++);
+  const ext=r.data.startsWith('data:image/png')?'.png':r.data.startsWith('data:image/gif')?'.gif':r.data.startsWith('data:image/webp')?'.webp':'.jpg';
+  const ex=P.images.findIndex(x=>x.key===base);const rec={key,file:key+ext,data:r.data,w:r.w,h:r.h,size:Math.round((r.data.length-r.data.indexOf(',')-1)*0.75)};
+  P.images.push(rec);n++}save();refreshAll();toast('已加入 '+n+' 張圖片')}
+
+/* ---------- 畫面：環境與輸出 ---------- */
+function renderEnvs(){const l=latest();const cur=stateOf();
+  $('#envs').innerHTML=P.envs.map(e=>{let st,chip;const v=e.ver&&verById(e.ver);
+    if(!v){st='尚未標記上稿';chip='<span class="chip mute">未上稿</span>'}
+    else{const ch=changesBetween(v,cur);const nf=ch.filter(c=>c.type==='field').length,ni=ch.filter(c=>c.type==='image').length,nt=ch.some(c=>c.type==='template');
+      st='已上 v'+v.no+'（'+fmtTime(e.at||v.time)+'）'+(ch.length?'<br>之後改了：'+[nf?nf+' 個欄位':'',ni?ni+' 張圖片':'',nt?'模板':''].filter(Boolean).join('、'):'<br>與目前內容相同');
+      chip=ch.length?'<span class="chip changed">需更新</span>':'<span class="chip ok">最新</span>'}
+    const n=e.node||{};const links=(n.admin?`<a href="${esc(safeUrl(n.admin))}" target="_blank" rel="noopener">開後台 ↗</a>`:'')+(n.front?`<a href="${esc(safeUrl(n.front))}" target="_blank" rel="noopener">看前台 ↗</a>`:'');
+    return `<div class="env" data-env="${e.id}" aria-current="${e.id===curEnv}" tabindex="0"><div class="name"><span>${esc(e.name)}</span>${chip}</div>
+      <div class="st">${st}</div>${n.path||n.id?'<div class="np">'+esc(n.path||'')+(n.id?'（ID '+esc(n.id)+'）':'')+'</div>':''}${links?'<div class="links">'+links+'</div>':''}
+      <label class="fl" for="base-${e.id}">圖片路徑前綴</label><input id="base-${e.id}" type="text" value="${esc(e.base)}" data-base="${e.id}">
+      <div class="row"><button data-mark="${e.id}">標記已上稿</button></div></div>`}).join('');
+  $$('[data-env]').forEach(el=>el.addEventListener('click',ev=>{if(ev.target.closest('input,button,a'))return;curEnv=el.dataset.env;renderEnvs();renderOutput()}));
+  $$('[data-base]').forEach(el=>el.addEventListener('input',()=>{P.envs.find(e=>e.id===el.dataset.base).base=el.value;save();renderOutput()}));
+  $$('[data-mark]').forEach(b=>b.addEventListener('click',()=>{const e=P.envs.find(x=>x.id===b.dataset.mark);let v=latest();if(!v||changesBetween(v,stateOf()).length){v=snapshot(($('#verLabel').value.trim())||('上稿到'+e.name));$('#verLabel').value=''}
+    e.ver=v.id;e.at=Date.now();save();refreshAll();toast(e.name+' 已標記為 v'+v.no)}));
+  renderChanges();
+}
+function renderChanges(){const e=P.envs.find(x=>x.id===curEnv);const v=e.ver&&verById(e.ver);const box=$('#changes');
+  if(!v){box.innerHTML='<p class="hint">'+esc(e.name)+' 還沒有上稿紀錄。上完整篇後按「標記已上稿」，之後這裡就會列出要改的地方。</p>';return}
+  const ch=changesBetween(v,stateOf());if(!ch.length){box.innerHTML='<p class="hint">'+esc(e.name)+' 上的 v'+v.no+' 就是目前內容，不用重上。</p>';return}
+  box.innerHTML='<div class="panel" style="border-style:dashed"><div class="panel-b" style="gap:10px"><strong style="font-size:13.5px">'+esc(e.name)+' 從 v'+v.no+' 之後要改的地方</strong>'+ch.map((c,i)=>{
+    if(c.type==='field')return `<div class="change"><div class="h"><code>${esc(c.key)}</code><button data-cc="${i}">複製新內容</button></div><div class="diff">${diffHtml(c.from,c.to)}</div></div>`;
+    if(c.type==='image')return `<div class="change"><div class="h"><span>圖片 <code>${esc(c.key)}</code>（${c.kind}）</span></div><p class="hint">${mode==='inline'?'內嵌模式：直接整段重貼即可，不用另外上傳。':c.kind==='刪除'?'可以從 CMS 刪掉這張圖。':'要把 '+esc(c.file)+' 上傳到 '+esc(e.base)}</p></div>`;
+    return `<div class="change"><div class="h"><span>模板結構有改</span></div><p class="hint">版面有變動，建議整段重貼。</p></div>`}).join('')+'</div></div>';
+  $$('[data-cc]').forEach(b=>b.addEventListener('click',()=>{const c=ch[+b.dataset.cc];let v=c.to;if(P.nl2br&&v.includes('\n')&&!/<[a-z][\s\S]*>/i.test(v))v=v.replace(/\r?\n/g,'<br>\n');copyText(v)}));
+}
+function renderOutput(){const e=P.envs.find(x=>x.id===curEnv);const r=render(e,mode,false);$('#out').value=r.html;$('#curEnvName').textContent=e.name;
+  const seen=new Set();$('#outWarns').innerHTML=r.warns.filter(w=>!seen.has(w[1])&&seen.add(w[1])).map(w=>'<span class="'+w[0]+'">'+esc(w[1])+'</span>').join('');
+  if(!$('#pv').hidden)updatePreview()}
+function updatePreview(){const e=P.envs.find(x=>x.id===curEnv);$('#pv').srcdoc='<!doctype html><meta charset="utf-8"><style>body{font-family:"Microsoft JhengHei",sans-serif;padding:16px;line-height:1.7;color:#222;background:#fff}img{max-width:100%}</style>'+render(e,mode,true).html}
+
+/* ---------- 版本頁 ---------- */
+function renderVers(){const box=$('#vers');box.innerHTML=P.versions.slice().reverse().map(v=>{const on=P.envs.filter(e=>e.ver===v.id).map(e=>'<span class="chip ok">'+esc(e.name)+'</span>').join(' ');return `<div class="ver"><b>v${v.no}</b><span>${fmtTime(v.time)}</span><span style="flex:1;min-width:120px">${esc(v.label||'')}</span>${on}</div>`}).join('')||'<p class="hint">還沒有版本。</p>';
+  const opts=P.versions.map(v=>`<option value="${v.id}">v${v.no} ${esc(v.label||'')}</option>`).join('')+'<option value="__cur">目前內容</option>';
+  const a=$('#cmpFrom').value,b=$('#cmpTo').value;$('#cmpFrom').innerHTML=opts;$('#cmpTo').innerHTML=opts;
+  $('#cmpFrom').value=a&&$('#cmpFrom').querySelector(`option[value="${a}"]`)?a:(P.versions.length?P.versions[Math.max(0,P.versions.length-1)].id:'__cur');$('#cmpTo').value=b&&$('#cmpTo').querySelector(`option[value="${b}"]`)?b:'__cur'}
+function cmpVersions(){const g=id=>id==='__cur'?stateOf():verById(id);const a=g($('#cmpFrom').value),b=g($('#cmpTo').value);if(!a||!b)return;const ch=changesBetween(a,b);
+  $('#verDiff').innerHTML=ch.length?ch.map(c=>c.type==='field'?`<div class="change"><div class="h"><code>${esc(c.key)}</code></div><div class="diff">${diffHtml(c.from,c.to)}</div></div>`:c.type==='image'?`<div class="change"><span>圖片 <code>${esc(c.key)}</code>：${c.kind}</span></div>`:`<div class="change"><span>模板</span><div class="diff mono">${diffHtml(c.from,c.to)}</div></div>`).join(''):'<p class="hint">兩個版本內容相同。</p>'}
+
+/* ---------- 共用 ---------- */
+function refreshAll(){$('#projName').value=P.name;$('#nl2br').checked=!!P.nl2br;$('#maxW').value=P.maxW;$('#quality').value=P.quality;renderFields(true);renderNodes();renderImgs();renderEnvs();renderOutput();renderVers()}
+let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2200)}
+function copyText(s){const fb=()=>{const ta=document.createElement('textarea');ta.value=s;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}ta.remove();toast(ok?'已複製':'無法自動複製，請手動選取複製')};
+  try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(s).then(()=>toast('已複製'),fb)}else fb()}catch(e){fb()}}
+function armed(btn,fn){btn.addEventListener('click',()=>{if(btn.classList.contains('armed')){btn.classList.remove('armed');fn();return}const o=btn.textContent;btn.classList.add('armed');btn.textContent='再按一次確認';setTimeout(()=>{if(btn.isConnected){btn.classList.remove('armed');btn.textContent=o}},3000)})}
+function download(name,blob){try{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}catch(e){}toast('若沒有開始下載，請改用下載到電腦的 .html 檔開啟本工具')}
+
+/* ZIP（不壓縮，檔名 UTF-8） */
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(u){let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRC[(c^u[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
+function makeZip(files){const enc=new TextEncoder();const parts=[],central=[];let off=0;
+  files.forEach(f=>{const nm=enc.encode(f.name),d=f.data,crc=crc32(d);const h=new DataView(new ArrayBuffer(30));h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,0,true);h.setUint32(14,crc,true);h.setUint32(18,d.length,true);h.setUint32(22,d.length,true);h.setUint16(26,nm.length,true);
+    parts.push(new Uint8Array(h.buffer),nm,d);const c=new DataView(new ArrayBuffer(46));c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint32(16,crc,true);c.setUint32(20,d.length,true);c.setUint32(24,d.length,true);c.setUint16(28,nm.length,true);c.setUint32(42,off,true);central.push(new Uint8Array(c.buffer),nm);off+=30+nm.length+d.length});
+  const cs=central.reduce((s,a)=>s+a.length,0);const e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cs,true);e.setUint32(16,off,true);
+  return new Blob([...parts,...central,new Uint8Array(e.buffer)],{type:'application/zip'})}
+const b64ToU8=d=>{const s=atob(d.slice(d.indexOf(',')+1));const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u};
+
+/* 匯出匯入視窗 */
+function openModal(title,hint,text,btns){$('#mTitle').textContent=title;$('#mHint').textContent=hint;$('#mText').value=text;$('#mBtns').innerHTML='';btns.forEach(([l,fn,cls])=>{const b=document.createElement('button');b.textContent=l;if(cls)b.className=cls;b.addEventListener('click',fn);$('#mBtns').appendChild(b)});$('#modal').hidden=false}
+async function importData(obj){const arr=obj&&obj.type==='shanggao-library'&&Array.isArray(obj.projects)?obj.projects:[obj];let n=0,last=null;
+  for(const p of arr){if(!p||typeof p.template!=='string'||!Array.isArray(p.envs))continue;const c=normalize(JSON.parse(JSON.stringify(p)));if(LIB.some(x=>x.id===c.id))c.id=uid();
+    if(dirty)await saveNow();P=c;await saveNow();last=c.id;n++}
+  if(!n)throw new Error('格式不對');await openProj(last);return n}
+
+/* ---------- AI 協作（不連 API，產生提示詞、解析貼回的回覆） ---------- */
+const JSON_RULE='\n\n請只輸出一個 json 程式碼區塊，不要有其他說明文字，格式如下：\n```json\n{\n  "fields": { "欄位名稱": "新內容" },\n  "notes": ["需要人工確認的事項，沒有就留空陣列"]\n}\n```\n欄位名稱只能用上面清單裡已有的名稱，不可自創；沒有要改的欄位就不要放進 fields。';
+const DEFAULT_PROMPTS=[
+ {id:'p-update',name:'新稿對應到欄位',expect:'fields',desc:'電腦公會傳來新稿時用。AI 比對素材和目前欄位，只回傳有變動的欄位。',
+  body:'你是政府機關網站的上稿編輯助理，工作是把合作廠商傳來的最新素材，對應到網頁稿件的既有欄位。\n\n規則：\n1. 只更新素材裡確實有變動的內容，素材沒提到的欄位不要動。\n2. 不要潤飾、改寫或補充素材沒有的資訊。\n3. 日期、時間、人名、職稱、機關名稱、數字，一律照素材原文。\n4. 保留欄位原本的格式：原本是 HTML（例如 <ul><li>）就輸出同樣結構的 HTML；原本是純文字就輸出純文字。\n5. 素材和現有內容有矛盾、或你無法確定要放哪個欄位時，不要猜，寫進 notes。\n\n稿件名稱：[[稿件名稱]]\n\n目前欄位內容（JSON）：\n[[欄位JSON]]\n\n最新素材：\n[[素材]]\n\n額外要求：[[額外要求]]'+JSON_RULE},
+ {id:'p-proof',name:'校對',expect:'fields',desc:'上稿給承辦人前用。找錯字、標點、用語與格式不一致，回傳建議修改。',
+  body:'你是政府機關新聞稿的校對人員。請校對下面的網頁稿件欄位。\n\n檢查項目：\n1. 錯別字、漏字、贅字。\n2. 使用臺灣正體中文用語與全形標點；中英文、數字之間的空格前後一致。\n3. 日期、時間、星期、數字的寫法在全文一致（例如 2026年11月9日 或 115年11月9日，不要混用）。\n4. 機關全銜、人名、職稱在全文寫法一致。\n5. HTML 結構不可破壞。\n\n只修正確定有問題的地方，不要改寫語氣或文意。每一處修改都在 notes 用一句話說明改了什麼、為什麼。\n\n目前欄位內容（JSON）：\n[[欄位JSON]]\n\n額外要求：[[額外要求]]'+JSON_RULE},
+ {id:'p-alt',name:'圖片替代文字',expect:'fields',desc:'把照片一起附到 AI 對話裡，讓 AI 依照片內容寫 alt。',
+  body:'你是協助政府網站符合無障礙規範的編輯。我會在這則訊息附上會議照片，請依照片內容撰寫替代文字（alt）。\n\n撰寫原則：\n1. 描述照片傳達的重點資訊，例如誰、在做什麼、什麼場合，約 15 到 50 字。\n2. 不要用「圖片」「照片」「這是」開頭，不要寫檔名。\n3. 看不出身分的人不要猜姓名或職稱；稿件內文有寫的才可以用。\n4. 純裝飾用的圖片，alt 留空字串。\n\n圖片清單（代號與檔名）：\n[[圖片清單]]\n\n目前的替代文字欄位（請依照片順序對應）：\n[[替代文字欄位]]\n\n稿件內文供參考：\n[[欄位JSON]]\n\n額外要求：[[額外要求]]'+JSON_RULE},
+ {id:'p-a11y',name:'無障礙預檢',expect:'text',desc:'把要上稿的 HTML 給 AI 先檢查一輪常見的無障礙問題。正式結果仍以檢測工具為準。',
+  body:'你是熟悉臺灣「無障礙網頁開發規範」與 WCAG 2.1 的檢測人員。請檢查下面這段要放進 CMS 的 HTML 片段，列出可能不符合規範的地方。\n\n請特別檢查：\n1. 圖片是否有適當的 alt。\n2. 標題層級（h2、h3…）是否依序，沒有跳級。\n3. 連結文字是否能看出目的地，避免只寫「點此」「詳見」。\n4. 表格是否有標題列（th）與適當的 scope 或 caption。\n5. 是否用全形空白、空段落或 <br> 來排版。\n6. 是否只靠顏色傳達資訊。\n7. 是否有空的連結、空的標題或重複的 id。\n\n輸出格式：用條列，每一項寫「位置（引用該段原始碼的前幾個字）／問題／建議修改後的寫法」。沒有問題的項目不用列。最後一行註明：本檢查不能取代正式檢測工具。\n\n額外要求：[[額外要求]]\n\nHTML：\n[[輸出HTML]]'},
+ {id:'p-notice',name:'給承辦人的修改說明',expect:'text',desc:'依版本差異，寫一段請承辦人確認的訊息，Line 或 email 都可用。',
+  body:'請幫我寫一則訊息給機關承辦人，請對方確認網頁稿件這一版的修改。\n\n要求：\n1. 語氣禮貌、簡潔，適合 Line 或 email。\n2. 條列這次改了哪些地方，每點一行，用承辦人看得懂的說法（例如「議程新增 10:20 合影」），不要出現欄位代號或 HTML。\n3. 只寫下面差異裡確實有的修改，不要推測原因。\n4. 結尾請對方確認，並提醒若有其他修改，請在確認時一併告知，以便一次更新。\n\n稿件名稱：[[稿件名稱]]\n今天日期：[[今天]]\n\n這一版的差異：\n[[變更]]\n\n額外要求：[[額外要求]]'},
+ {id:'p-html',name:'素材轉成 HTML 片段',expect:'text',desc:'把 Word 或廠商給的文字，轉成乾淨、適合貼進 CKEditor 原始碼的 HTML。',
+  body:'請把下面的素材轉成可以貼進 CKEditor 原始碼模式的 HTML 片段。\n\n規則：\n1. 只能使用 p、h3、h4、ul、ol、li、strong、a、table、caption、thead、tbody、tr、th、td。\n2. 不要有 style、class、font、span，不要有 Word 殘留的標籤。\n3. 表格要有 caption，標題列用 th 並加上 scope。\n4. 移除用全形空白或連續空白做的縮排與對齊。\n5. 文字內容一字不改。\n\n只輸出一個 html 程式碼區塊。\n\n額外要求：[[額外要求]]\n\n素材：\n[[素材]]'},
+ {id:'p-free',name:'自由提問',expect:'text',desc:'把整份稿件資料帶給 AI，問什麼都可以，例如「幫我想三種標題」。',
+  body:'以下是一份政府機關網頁稿件的資料，請根據它回答我的問題。\n\n稿件名稱：[[稿件名稱]]\n\n欄位內容（JSON）：\n[[欄位JSON]]\n\n我的問題或需求：\n[[額外要求]]\n\n補充素材：\n[[素材]]\n\n如果你的回答包含要修改的欄位內容，請另外附上一個 json 程式碼區塊，格式為 {"fields": {"欄位名稱": "新內容"}, "notes": []}，欄位名稱只能用上面已有的名稱。'}
+];
+const PLACEHOLDERS=['欄位JSON','素材','額外要求','變更','輸出HTML','模板','圖片清單','替代文字欄位','稿件名稱','今天'];
+const EXTRA_CHIPS=['只改素材有改的地方，不要潤飾','用更正式的公文語氣','寫得更簡潔','給我三種不同寫法讓我挑','把所有不確定的地方都列出來'];
+let PROMPTS=[],curPrompt=null,aiPending=[];
+const envCur=()=>P.envs.find(x=>x.id===curEnv);
+const curP=()=>PROMPTS.find(p=>p.id===curPrompt)||PROMPTS[0];
+let pTimer;function savePrompts(){clearTimeout(pTimer);pTimer=setTimeout(()=>store.set('prompts',JSON.parse(JSON.stringify(PROMPTS))),400)}
+async function loadPrompts(){const s=await store.get('prompts');PROMPTS=Array.isArray(s)&&s.length?s:JSON.parse(JSON.stringify(DEFAULT_PROMPTS));curPrompt=PROMPTS[0].id}
+function renderPrompts(){const p=curP();curPrompt=p.id;
+  $('#pList').innerHTML=PROMPTS.map(x=>`<button data-p="${esc(x.id)}" aria-pressed="${x.id===p.id}">${esc(x.name||'未命名')}</button>`).join('');
+  $$('[data-p]').forEach(b=>b.addEventListener('click',()=>{curPrompt=b.dataset.p;aiPending=[];$('#aiResult').innerHTML='';renderPrompts()}));
+  $('#pDesc').textContent=(p.desc||'')+(p.expect==='fields'?' 回覆可以直接套用到欄位。':' 回覆是文字，直接在 AI 那邊複製使用即可。');
+  $('#matBox').hidden=!p.body.includes('[[素材]]');
+  $('#pName').value=p.name||'';$('#pDescIn').value=p.desc||'';$('#pExpect').value=p.expect||'text';$('#pBody').value=p.body||''}
+function ctxValue(n){const fm=parseFields(P.template);
+  switch(n){
+   case '欄位JSON':{const o={};fm.forEach((d,k)=>o[k]=fieldValue(k,d));return JSON.stringify(o,null,2)}
+   case '替代文字欄位':{const o={};fm.forEach((d,k)=>{if(/alt/i.test(k))o[k]=fieldValue(k,d)});return Object.keys(o).length?JSON.stringify(o,null,2):'（模板裡沒有名稱含 alt 的欄位）'}
+   case '模板':return P.template;
+   case '輸出HTML':return render(envCur(),'path',false).html;
+   case '變更':return changesText();
+   case '圖片清單':return P.images.map(i=>'- '+i.key+'（'+i.file+'，'+i.w+'×'+i.h+'）').join('\n')||'（沒有圖片）';
+   case '素材':return $('#aiMat').value.trim()||'（未提供）';
+   case '額外要求':return $('#aiExtra').value.trim()||'（無）';
+   case '稿件名稱':return P.name||'';
+   case '今天':{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+   default:return null}}
+function changesText(){const e=envCur();let base=e.ver&&verById(e.ver),label;if(base)label=e.name+' 上的 v'+base.no;else{base=latest();label=base?'v'+base.no:''}
+  if(!base)return '（沒有版本紀錄，無法列出差異）';const ch=changesBetween(base,stateOf());if(!ch.length)return '（'+label+' 之後沒有變更）';
+  return '比較基準：'+label+'\n\n'+ch.map(c=>c.type==='field'?'【'+c.key+'】\n原本：'+(c.from||'（空）')+'\n改為：'+(c.to||'（空）'):c.type==='image'?'【圖片 '+c.key+'】'+c.kind:'【版面結構】有調整').join('\n\n')}
+function buildPrompt(p){return p.body.replace(/\[\[(.+?)\]\]/g,(m,n)=>{const v=ctxValue(n.trim());return v===null?m:v})}
+function extractJson(t){const m=t.match(/```(?:json)?\s*([\s\S]*?)```/i);let s=m&&m[1].trim().startsWith('{')?m[1]:null;if(!s){const a=t.indexOf('{'),b=t.lastIndexOf('}');if(a>=0&&b>a)s=t.slice(a,b+1)}if(!s)return null;
+  try{return JSON.parse(s)}catch(e){try{return JSON.parse(s.replace(/,\s*([}\]])/g,'$1'))}catch(e2){return null}}}
+function parseReply(){const t=$('#aiReply').value;const box=$('#aiResult');aiPending=[];if(!t.trim()){box.innerHTML='<p class="hint">先把 AI 的回覆貼進上面的框。</p>';return}
+  const obj=extractJson(t);const p=curP();
+  if(!obj||typeof obj!=='object'){box.innerHTML=p.expect==='fields'?'<p class="warns"><span class="e">找不到可以解析的 JSON。可以請 AI「只輸出 json 程式碼區塊」再貼一次。</span></p>':'<p class="hint">這個回覆是文字，直接在 AI 那邊複製使用即可。</p>';return}
+  const fields=obj.fields&&typeof obj.fields==='object'?obj.fields:obj;const fm=parseFields(P.template);const unknown=[];
+  Object.keys(fields).forEach(k=>{if(k==='notes')return;let v=fields[k];if(v===null||typeof v==='object'){unknown.push(k);return}v=String(v);if(!fm.has(k)){unknown.push(k);return}const cur=fieldValue(k,fm.get(k));if(cur!==v)aiPending.push({k,from:cur,to:v})});
+  const notes=Array.isArray(obj.notes)?obj.notes.filter(Boolean):[];
+  box.innerHTML=(notes.length?'<div class="field"><strong style="font-size:13px">AI 提醒要人工確認</strong><ul class="notes">'+notes.map(n=>'<li>'+esc(typeof n==='string'?n:JSON.stringify(n))+'</li>').join('')+'</ul></div>':'')+
+   (unknown.length?'<p class="warns"><span class="w">略過不存在的欄位：'+unknown.map(esc).join('、')+'</span></p>':'')+
+   (aiPending.length?'<div class="panel" style="border-style:dashed"><div class="panel-b" style="gap:10px">'+aiPending.map((c,i)=>`<div class="change"><div class="h"><label><input type="checkbox" data-ap="${i}" checked> <code>${esc(c.k)}</code></label></div><div class="diff">${diffHtml(c.from,c.to)}</div></div>`).join('')+
+     '<div class="row"><button id="btnApply" class="primary">套用勾選的修改</button><label class="row" style="font-size:12.5px;color:var(--muted)"><input type="checkbox" id="apSnap" checked> 套用後存成新版本</label></div></div></div>':'<p class="hint">AI 的回覆和目前欄位內容相同，沒有要套用的修改。</p>');
+  const ab=$('#btnApply');if(ab)ab.addEventListener('click',()=>{let n=0;$$('[data-ap]').forEach(cb=>{if(cb.checked){const c=aiPending[+cb.dataset.ap];P.values[c.k]=c.to;n++}});if(!n){toast('沒有勾選任何修改');return}
+    let msg='已套用 '+n+' 處修改';if($('#apSnap').checked){const v=snapshot('AI：'+p.name);msg+='，存成 v'+v.no}save();refreshAll();aiPending=[];$('#aiResult').innerHTML='<p class="hint">'+esc(msg)+'。右側環境卡片會顯示哪些環境需要更新。</p>';toast(msg)})}
+function insertAtCursor(ta,s){const a=ta.selectionStart,b=ta.selectionEnd;ta.value=ta.value.slice(0,a)+s+ta.value.slice(b);ta.selectionStart=ta.selectionEnd=a+s.length;ta.focus();ta.dispatchEvent(new Event('input'))}
+function bindAI(){
+  $('#extraChips').innerHTML=EXTRA_CHIPS.map((c,i)=>`<button class="mini" data-xc="${i}">＋ ${esc(c)}</button>`).join('');
+  $$('[data-xc]').forEach(b=>b.addEventListener('click',()=>{const ta=$('#aiExtra');const c=EXTRA_CHIPS[+b.dataset.xc];if(!ta.value.includes(c))ta.value=(ta.value.trim()?ta.value.trim()+'\n':'')+c}));
+  $('#phChips').innerHTML=PLACEHOLDERS.map(n=>`<button class="mini" data-ph="${esc(n)}">[[${esc(n)}]]</button>`).join('');
+  $$('[data-ph]').forEach(b=>b.addEventListener('click',()=>insertAtCursor($('#pBody'),'[['+b.dataset.ph+']]')));
+  $('#btnGenPrompt').addEventListener('click',()=>{const t=buildPrompt(curP());$('#aiPrompt').value=t;$('#promptLen').textContent='約 '+t.length+' 字';copyText(t)});
+  $('#btnParse').addEventListener('click',parseReply);
+  const upd=()=>{const p=curP();p.name=$('#pName').value;p.desc=$('#pDescIn').value;p.expect=$('#pExpect').value;p.body=$('#pBody').value;savePrompts();
+    const b=$(`[data-p="${CSS.escape(p.id)}"]`);if(b)b.textContent=p.name||'未命名';$('#matBox').hidden=!p.body.includes('[[素材]]')};
+  ['#pName','#pDescIn','#pBody'].forEach(s=>$(s).addEventListener('input',upd));$('#pExpect').addEventListener('change',()=>{upd();renderPrompts()});
+  $('#pAdd').addEventListener('click',()=>{const p={id:'p-'+uid(),name:'新的提示詞',expect:'text',desc:'',body:'以下是稿件資料：\n[[欄位JSON]]\n\n我的需求：\n[[額外要求]]'};PROMPTS.push(p);curPrompt=p.id;savePrompts();renderPrompts();$('#pEditWrap').open=true});
+  $('#pDup').addEventListener('click',()=>{const s=curP();const p=Object.assign({},s,{id:'p-'+uid(),name:s.name+'（複本）'});PROMPTS.push(p);curPrompt=p.id;savePrompts();renderPrompts();toast('已複製，可以放心修改這份')});
+  armed($('#pDel'),()=>{if(PROMPTS.length<=1){toast('至少要留一個提示詞');return}PROMPTS=PROMPTS.filter(p=>p.id!==curPrompt);curPrompt=PROMPTS[0].id;savePrompts();renderPrompts()});
+  armed($('#pReset'),()=>{const own=PROMPTS.filter(p=>!DEFAULT_PROMPTS.some(d=>d.id===p.id));PROMPTS=JSON.parse(JSON.stringify(DEFAULT_PROMPTS)).concat(own);curPrompt=PROMPTS[0].id;savePrompts();renderPrompts();toast('預設提示詞已還原，你新增的提示詞仍保留')});
+  $('#pExport').addEventListener('click',()=>{const t=JSON.stringify(PROMPTS,null,1);openModal('匯出提示詞','複製這段文字，就能在別台電腦或同事的工具裡匯入同一套提示詞。',t,[['複製全部文字',()=>copyText(t),'primary']]);$('#mText').readOnly=true});
+  $('#pImport').addEventListener('click',()=>{openModal('匯入提示詞','貼上匯出的提示詞文字。名稱相同的會被取代，其他的會加進來。','',[['匯入',()=>{try{const arr=JSON.parse($('#mText').value);if(!Array.isArray(arr))throw 0;let n=0;arr.forEach(x=>{if(!x||typeof x.body!=='string')return;const i=PROMPTS.findIndex(p=>p.name===x.name);const rec={id:x.id&&!PROMPTS.some(p=>p.id===x.id&&p.name!==x.name)?x.id:'p-'+uid(),name:x.name||'未命名',desc:x.desc||'',expect:x.expect==='fields'?'fields':'text',body:x.body};if(i>=0)PROMPTS[i]=rec;else PROMPTS.push(rec);n++});savePrompts();renderPrompts();$('#modal').hidden=true;toast('已匯入 '+n+' 個提示詞')}catch(e){toast('格式不對，請貼上完整的匯出文字')}},'primary']]);$('#mText').readOnly=false});
+}
+
+/* ---------- 事件 ---------- */
+function bind(){
+  $$('.tab').forEach(t=>t.addEventListener('click',()=>{$$('.tab').forEach(x=>x.setAttribute('aria-selected',x===t));['content','nodes','images','template','compare','ai'].forEach(n=>$('#tab-'+n).hidden=n!==t.dataset.tab);if(t.dataset.tab==='compare')renderVers()}));
+  $('#projName').addEventListener('input',e=>{P.name=e.target.value;save()});
+  $('#tpl').addEventListener('input',e=>{P.template=e.target.value;save();renderFields();renderImgs();renderEnvs();renderOutput()});
+  $('#btnMakeVar').addEventListener('click',()=>{const ta=$('#tpl'),s=ta.selectionStart,e=ta.selectionEnd;const n=$('#newVarName').value.trim();if(s===e){toast('先在模板裡反白要換掉的文字');return}if(!/^[\w\-]+$/.test(n)){toast('變數名稱請用英文、數字或底線');return}
+    const sel=ta.value.slice(s,e);ta.value=ta.value.slice(0,s)+'{{'+n+'}}'+ta.value.slice(e);P.template=ta.value;if(P.values[n]===undefined)P.values[n]=sel;$('#newVarName').value='';save();renderFields(true);renderEnvs();renderOutput();toast('已建立變數 '+n+'，原本的文字放進欄位了')});
+  $('#nl2br').addEventListener('change',e=>{P.nl2br=e.target.checked;save();renderOutput()});
+  $('#btnSnap').addEventListener('click',()=>{const l=latest();if(l&&!changesBetween(l,stateOf()).length){toast('內容跟 v'+l.no+' 一樣，不用另存');return}const v=snapshot($('#verLabel').value.trim());$('#verLabel').value='';save();refreshAll();toast('已存成 v'+v.no)});
+  $('#modePath').addEventListener('click',()=>{mode='path';$('#modePath').setAttribute('aria-pressed','true');$('#modeInline').setAttribute('aria-pressed','false');renderChanges();renderOutput()});
+  $('#modeInline').addEventListener('click',()=>{mode='inline';$('#modeInline').setAttribute('aria-pressed','true');$('#modePath').setAttribute('aria-pressed','false');renderChanges();renderOutput()});
+  $('#btnCopy').addEventListener('click',()=>copyText($('#out').value));
+  $('#btnPreview').addEventListener('click',()=>{const pv=$('#pv');pv.hidden=!pv.hidden;if(!pv.hidden)updatePreview()});
+  $('#btnDl').addEventListener('click',()=>{const e=P.envs.find(x=>x.id===curEnv);download((P.name||'稿件')+'-'+e.name+'.html',new Blob([$('#out').value],{type:'text/html'}))});
+  const drop=$('#drop');['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('over')}));['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('over')}));
+  drop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));$('#btnPick').addEventListener('click',()=>$('#filePick').click());$('#filePick').addEventListener('change',e=>{addFiles(e.target.files);e.target.value=''});
+  $('#maxW').addEventListener('change',e=>{P.maxW=+e.target.value||1600;save()});$('#quality').addEventListener('change',e=>{P.quality=Math.min(1,Math.max(.5,+e.target.value||.85));save()});
+  $('#btnZip').addEventListener('click',()=>{if(!P.images.length){toast('還沒有圖片');return}download((P.name||'稿件')+'-圖片.zip',makeZip(P.images.map(i=>({name:i.file,data:b64ToU8(i.data)}))))});
+  $('#btnCmpText').addEventListener('click',()=>{const a=$('#cmpA').value,b=$('#cmpB').value;$('#textDiff').innerHTML=a===b?'<p class="hint">兩邊內容相同。</p>':'<div class="diff">'+diffHtml(a,b)+'</div>'});
+  $('#btnCmpVer').addEventListener('click',cmpVersions);
+  const showExport=txt=>{$('#mText').value=txt;$('#mHint').textContent='共約 '+Math.round(txt.length/1024)+' KB 文字。可以複製後貼到 VDI 裡的同一個工具匯入，或下載成 .json 備份。'};
+  $('#btnExport').addEventListener('click',async()=>{if(dirty)await saveNow();const one=JSON.stringify(P);
+    openModal('匯出','',one,[['複製全部文字',()=>copyText($('#mText').value),'primary'],
+      ['改成匯出全部稿件',async()=>{const ps=[];for(const x of LIB){const p=await sGet('proj:'+x.id);if(p)ps.push(p)}showExport(JSON.stringify({type:'shanggao-library',projects:ps}));toast('已改成全部 '+ps.length+' 份稿件')}],
+      ['下載 .json',()=>download((P.name||'稿件')+'.json',new Blob([$('#mText').value],{type:'application/json'}))]]);showExport(one);$('#mText').readOnly=true});
+  const doImport=async txt=>{try{const n=await importData(JSON.parse(txt));$('#modal').hidden=true;toast('已匯入 '+n+' 份稿件，加在稿件清單裡')}catch(e){toast('無法匯入：文字不完整或格式不對')}};
+  $('#btnImport').addEventListener('click',()=>{openModal('匯入','貼上匯出的文字，或選一個 .json 檔。匯入的稿件會加進稿件清單，不會覆蓋現有稿件。','',[['匯入貼上的文字',()=>doImport($('#mText').value),'primary'],['選擇 .json 檔',()=>{const i=document.createElement('input');i.type='file';i.accept='.json,application/json';i.onchange=()=>{const f=i.files[0];if(!f)return;const fr=new FileReader();fr.onload=()=>doImport(fr.result);fr.readAsText(f)};i.click()}]]);$('#mText').readOnly=false});
+  $('#mClose').addEventListener('click',()=>$('#modal').hidden=true);
+  $('#modal').addEventListener('click',e=>{if(e.target.id==='modal')$('#modal').hidden=true});
+  $('#btnLib').addEventListener('click',()=>{const lp=$('#libPanel');lp.hidden=!lp.hidden;if(!lp.hidden){renderLib();$('#libSearch').focus()}});
+  $('#libSearch').addEventListener('input',renderLib);$('#libFilter').addEventListener('change',renderLib);
+  $('#libNew').addEventListener('click',async()=>{await newProj(blankProject(P.envs),'已新增空白稿件，環境路徑沿用目前設定');renderLib()});
+  [['#mTags','tags'],['#mOwner','owner'],['#mDue','due']].forEach(([s,k])=>$(s).addEventListener('input',e=>{P.meta[k]=e.target.value;save()}));
+}
+
+(async function init(){bind();bindAI();await store.open();await loadPrompts();renderPrompts();
+  const idx=await store.get('index');
+  if(Array.isArray(idx)&&idx.length){LIB=idx;const cur=await store.get('current');const ok=await openProj(LIB.some(x=>x.id===cur)?cur:LIB[0].id);if(!ok){seed();P=normalize(P);curEnv=P.envs[0].id;$('#tpl').value=P.template;refreshAll();await saveNow()}else $('#saveState').textContent='已載入本機資料'}
+  else{const old=await store.get('project');if(old&&typeof old.template==='string')P=normalize(old);else{seed();P=normalize(P)}curEnv=P.envs[0].id;$('#tpl').value=P.template;refreshAll();await saveNow()}
+  $('#btnLib').textContent='稿件清單（'+LIB.length+'）'})();
+})();
+</script>
