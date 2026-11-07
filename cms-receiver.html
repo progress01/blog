@@ -27,7 +27,7 @@ iframe{width:100%;height:420px;border:1px solid var(--line);border-radius:8px;ba
 <div id="msg" class="msg hid"></div>
 <div id="tests" class="card hid"><h2>剪貼簿容量測試</h2><div id="tl"></div><p class="mut">從小到大一卷一卷貼。出現「不完整」的那一級，代表超過上限；工作台的「每卷大小」請選它前一級。</p></div>
 <div id="list"></div>
-<div class="row"><button id="clr">清空全部</button><span class="mut">收件台版本 1.0，可接收物流箱 V5 包裹</span></div>
+<div class="row"><button id="clr">清空全部</button><span class="mut">收件台版本 1.1，可接收物流箱 V5 包裹</span></div>
 </div>
 <script>
 'use strict';
@@ -63,7 +63,7 @@ function say(t,c){const m=$('msg');m.textContent=t;m.className='msg '+c}
 /* 斷線續收：存在瀏覽器 */
 let DB=null;const G=new Map();
 function dbOpen(){return new Promise(r=>{try{const q=indexedDB.open('cms-receiver',1);q.onupgradeneeded=()=>q.result.createObjectStore('g');q.onsuccess=()=>{DB=q.result;r()};q.onerror=()=>r()}catch(e){r()}})}
-function dbPut(g){if(!DB)return;try{const{el,urls,...rest}=g;rest.chunks=[...g.chunks];DB.transaction('g','readwrite').objectStore('g').put(rest,g.key)}catch(e){}}
+function dbPut(g){if(!DB)return;try{const{el,urls,_drawMap,...rest}=g;rest.chunks=[...g.chunks];DB.transaction('g','readwrite').objectStore('g').put(rest,g.key)}catch(e){}}
 function dbDel(k){if(!DB)return;try{DB.transaction('g','readwrite').objectStore('g').delete(k)}catch(e){}}
 function dbAll(){return new Promise(r=>{if(!DB)return r([]);try{const q=DB.transaction('g').objectStore('g').getAll();q.onsuccess=()=>r(q.result||[]);q.onerror=()=>r([])}catch(e){r([])}})}
 /* 收件 */
@@ -92,20 +92,43 @@ function showDone(g,b){const files=g.flags.includes('B')?unzip(g.bytes):[{name:g
  if(man){let m;try{m=JSON.parse(new TextDecoder().decode(man.data))}catch(e){m=null}if(m&&m.type==='cms-pack'){showPack(g,b,m,files);return}}
  const box=el('div');files.forEach(f=>{const it=el('div','it');it.appendChild(el('span','',f.name+'（'+fsz(f.data.length)+'）'));const d=el('button','p','下載');d.onclick=()=>dl(new Blob([f.data],{type:mime(f.name)}),f.name);it.appendChild(d);box.appendChild(it)});
  if(files.length>1){const all=el('button','p','全部下載（'+files.length+' 個）');all.onclick=async()=>{for(const f of files){dl(new Blob([f.data],{type:mime(f.name)}),f.name);await new Promise(r=>setTimeout(r,400))}};b.appendChild(all)}b.appendChild(box)}
-function showPack(g,b,m,files){const imgs=files.filter(f=>f.name.startsWith('images/'));g.urls=g.urls||[];
+const EXT='jpe?g|png|gif|webp|svg|tiff?|odg|bmp';
+function parseMap(t){const re=new RegExp('((?:https?:\\/\\/[^\\s"\'<>]+?|\\/[^\\s"\'<>]*?)\\.(?:'+EXT+'))(?![\\w])|([^\\n\\t\\/"\'<>]+?\\.(?:'+EXT+'))(?![\\w])','gi');const pairs=[],orphan=[];let pend=null,x;
+ while((x=re.exec(t))){if(x[1]){if(pend){pairs.push([pend,x[1]]);pend=null}else orphan.push(x[1])}else pend=x[2].trim()}return{pairs,orphan}}
+const stem=n=>n.replace(/\.[^.]+$/,'').toLowerCase();
+function autoMap(g,m,text){const{pairs,orphan}=parseMap(text);g.map=g.map||{};let n=0;const refs=m.refs||m.images||[];
+ refs.forEach(f=>{let hit=null;for(const[nm,p]of pairs){if(nm===f)hit=p}if(!hit)for(const[nm,p]of pairs){if(nm.toLowerCase()===f.toLowerCase())hit=p}if(!hit)for(const[nm,p]of pairs){if(stem(nm)===stem(f))hit=p}if(hit){g.map[f]=hit;g.byOrder&&delete g.byOrder[f];n++}});
+ const left=refs.filter(f=>!g.map[f]&&(m.images||[]).includes(f));g.byOrder=g.byOrder||{};left.forEach((f,i)=>{if(orphan[i]){g.map[f]=orphan[i];g.byOrder[f]=1;n++}});return n}
+function finalHtml(m,map){let h=m.html;(m.refs||m.images||[]).forEach(f=>{const p=map&&map[f];if(!p)return;const from=(m.base||'')+f;h=h.split('"'+from+'"').join('"'+p+'"').split("'"+from+"'").join("'"+p+"'")});return h}
+function showPack(g,b,m,files){const imgs=files.filter(f=>f.name.startsWith('images/'));g.urls=g.urls||[];g.map=g.map||{};const refs=m.refs||m.images||[];const fill=!m.base&&refs.length>0;
+ const url=f=>{const x=imgs.find(i=>i.name.slice(7)===f);if(!x)return null;const u=URL.createObjectURL(new Blob([x.data],{type:mime(x.name)}));g.urls.push(u);return u};
  b.appendChild(el('p','',m.unit+'｜'+m.env+'｜v'+m.ver+'｜打包於 '+m.time));if(m.path)b.appendChild(el('p','mut','後台位置：'+m.path));
  if(m.changes){const s=el('div','step');s.appendChild(el('h2','','這次改了什麼'));s.appendChild(el('pre','',m.changes));b.appendChild(s)}
  const s1=el('div','step');s1.appendChild(el('h2','','① 上傳圖片'+(imgs.length?'（'+imgs.length+' 張）':'')));
- if(imgs.length){s1.appendChild(el('p','mut','上傳到 CMS 的「'+(m.base||'（未設定路徑）')+'」，檔名不要改。'));const all=el('button','p','全部下載');all.onclick=async()=>{for(const f of imgs){dl(new Blob([f.data],{type:mime(f.name)}),f.name.slice(7));await new Promise(r=>setTimeout(r,400))}};s1.appendChild(all);
+ if(imgs.length){s1.appendChild(el('p','mut',fill?'先按「全部下載」，再到 CMS 的「內嵌檔案」一次選取這些檔案上傳。檔名不要改，回填時要靠檔名配對。':'上傳到 CMS 的「'+m.base+'」，檔名不要改。'));const all=el('button','p','全部下載');all.onclick=async()=>{for(const f of imgs){dl(new Blob([f.data],{type:mime(f.name)}),f.name.slice(7));await new Promise(r=>setTimeout(r,400))}};s1.appendChild(all);
   imgs.forEach(f=>{const it=el('div','it');it.appendChild(el('span','',f.name.slice(7)+'（'+fsz(f.data.length)+'）'));const d=el('button','','下載');d.onclick=()=>dl(new Blob([f.data],{type:mime(f.name)}),f.name.slice(7));it.appendChild(d);s1.appendChild(it)})}
  else s1.appendChild(el('p','mut','這次沒有新圖片要上傳。'));b.appendChild(s1);
- const s2=el('div','step');s2.appendChild(el('h2','','② 貼上原始碼'));s2.appendChild(el('p','mut','CKEditor 切到「原始碼」模式，全選後貼上取代。'));const ta=el('textarea');ta.value=m.html;ta.rows=8;ta.readOnly=true;
- const r2=el('div','row'),cp=el('button','p','複製原始碼');cp.onclick=async()=>{const ok=await copy(m.html);if(!ok){ta.select()}say(ok?'原始碼已複製':'請手動 Ctrl+C（已幫你選取）',ok?'ok':'warn')};
- const pv=el('button','','預覽');const fr=el('iframe','hid');pv.onclick=()=>{if(fr.classList.toggle('hid'))return;let h=m.html;imgs.forEach(f=>{const u=URL.createObjectURL(new Blob([f.data],{type:mime(f.name)}));g.urls.push(u);h=h.split((m.base||'')+f.name.slice(7)).join(u)});fr.srcdoc='<meta charset="utf-8"><style>body{font-family:sans-serif;padding:12px}img{max-width:100%}</style>'+h};
- r2.append(cp,pv);s2.append(r2,ta,fr);b.appendChild(s2);
- const s3=el('div','step');s3.appendChild(el('h2','','③ 節點設定'));if(m.checklist&&m.checklist.length)m.checklist.forEach((c,i)=>{const l=el('label','ck'),x=el('input');x.type='checkbox';l.append(x,el('span','',c));s3.appendChild(l)});else s3.appendChild(el('p','mut','這個單元沒有設定清單。'));
- if(m.admin)s3.appendChild(el('p','mut','後台網址：'+m.admin));if(m.front)s3.appendChild(el('p','mut','上稿後到前台確認：'+m.front));b.appendChild(s3)}
-document.addEventListener('paste',e=>{e.preventDefault();onPaste((e.clipboardData||window.clipboardData).getData('text'));$('pa').value=''});
+ let s2=null;
+ if(refs.length){s2=el('div','step');s2.appendChild(el('h2','',fill?'② 回填圖片路徑':'② 回填圖片路徑（CMS 有改檔名才需要）'));
+  const body=fill?s2:el('details');if(!fill){body.appendChild(el('summary','mut','展開'));s2.appendChild(body)}
+  body.appendChild(el('p','mut','在 CMS 的「內嵌檔案」清單，用滑鼠從第一列拖到最後一列整個框選，Ctrl+C，貼在下面。會用「名稱」自動配對每張圖的路徑，以前上傳過的圖也一起配對。'));
+  const ta=el('textarea');ta.rows=3;ta.placeholder='貼上內嵌檔案清單';const r=el('div','row'),go=el('button','p','配對');r.append(go);const tbl=el('div');body.append(ta,r,tbl);
+  const drawMap=()=>{tbl.innerHTML='';let ok=0;refs.forEach(f=>{const it=el('div','it');const lf=el('div','row');const u=url(f);if(u){const im=el('img');im.src=u;im.style.cssText='width:56px;height:40px;object-fit:cover;border-radius:4px';lf.appendChild(im)}lf.appendChild(el('span','',f+(u?'':'（以前上傳的）')));
+    const inp=el('input');inp.value=g.map[f]||'';inp.placeholder='貼上這張圖的路徑';inp.style.cssText='flex:1;min-width:200px;font:12.5px Consolas,monospace;padding:5px;border:1px solid var(--line);border-radius:6px';
+    inp.oninput=()=>{if(inp.value.trim())g.map[f]=inp.value.trim();else delete g.map[f];if(g.byOrder)delete g.byOrder[f];dbPut(g);upd()};
+    const st=el('span','mut',g.map[f]?(g.byOrder&&g.byOrder[f]?'依順序配對，請確認':'✓'):'未配對');st.style.color=g.map[f]?(g.byOrder&&g.byOrder[f]?'var(--warn)':'var(--ok)'):'var(--bad)';if(g.map[f])ok++;
+    it.append(lf,inp,st);tbl.appendChild(it)});return ok};
+  go.onclick=()=>{const n=autoMap(g,m,ta.value);dbPut(g);drawMap();upd();say(n?'已配對 '+n+' 張':'找不到可配對的路徑，請確認有把「名稱/路徑」欄一起框選複製',n?'ok':'warn')};
+  ta.addEventListener('paste',e=>{e.stopPropagation();setTimeout(()=>go.onclick(),0)});
+  g._drawMap=drawMap;b.appendChild(s2)}
+ const s3=el('div','step');s3.appendChild(el('h2','',(refs.length?'③':'②')+' 貼上原始碼'));s3.appendChild(el('p','mut','CKEditor 切到「原始碼」模式，全選後貼上取代。'));const warn=el('div','msg warn hid');const ta3=el('textarea');ta3.rows=8;ta3.readOnly=true;
+ const r3=el('div','row'),cp=el('button','p','複製原始碼');const upd=()=>{ta3.value=finalHtml(m,g.map);const miss=fill?refs.filter(f=>!g.map[f]):[];warn.textContent=miss.length?'還有 '+miss.length+' 張圖片沒有路徑：'+miss.join('、')+'。先完成上一步再複製。':'';warn.classList.toggle('hid',!miss.length)};
+ cp.onclick=async()=>{const ok=await copy(ta3.value);if(!ok)ta3.select();say(ok?'原始碼已複製':'請手動 Ctrl+C（已幫你選取）',ok?'ok':'warn')};
+ const pv=el('button','','預覽');const fr=el('iframe','hid');pv.onclick=()=>{if(fr.classList.toggle('hid'))return;let h=m.html;imgs.forEach(f=>{const u=url(f.name.slice(7));h=h.split('"'+(m.base||'')+f.name.slice(7)+'"').join('"'+u+'"')});fr.srcdoc='<meta charset="utf-8"><style>body{font-family:sans-serif;padding:12px}img{max-width:100%}</style>'+h};
+ r3.append(cp,pv);s3.append(warn,r3,ta3,fr);b.appendChild(s3);if(g._drawMap)g._drawMap();upd();
+ const s4=el('div','step');s4.appendChild(el('h2','',(refs.length?'④':'③')+' 節點設定'));if(m.checklist&&m.checklist.length)m.checklist.forEach(c=>{const l=el('label','ck'),x=el('input');x.type='checkbox';l.append(x,el('span','',c));s4.appendChild(l)});else s4.appendChild(el('p','mut','這個單元沒有設定清單。'));
+ if(m.admin)s4.appendChild(el('p','mut','後台網址：'+m.admin));if(m.front)s4.appendChild(el('p','mut','上稿後到前台確認：'+m.front));b.appendChild(s4)}
+document.addEventListener('paste',e=>{if(e.target&&e.target.closest&&e.target.closest('.step'))return;e.preventDefault();onPaste((e.clipboardData||window.clipboardData).getData('text'));$('pa').value=''});
 $('clr').onclick=()=>{G.forEach(g=>{dbDel(g.key);(g.urls||[]).forEach(u=>URL.revokeObjectURL(u))});G.clear();$('list').innerHTML='';tests.clear();$('tests').classList.add('hid');say('已清空','info')};
 dbOpen().then(dbAll).then(all=>{all.sort((a,b)=>a.t-b.t).forEach(s=>{const g=Object.assign(s,{chunks:new Map(s.chunks||[])});G.set(g.key,g);draw(g)});if(all.length)say('已接回上次收到的 '+all.length+' 個包裹','info')});
 </script></body></html>
