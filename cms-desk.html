@@ -1,0 +1,756 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>上稿工作台</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* 版面：頂部是單元切換與步驟分頁，內容區單欄；比對與檢查用左右兩欄，手機時堆疊 */
+:root{
+  --bg:#eef1f0; --panel:#ffffff; --ink:#1d2a2c; --muted:#5f6f71; --line:#d3dbda;
+  --accent:#0f6b66; --accent-ink:#ffffff; --soft:#e2eeec; --code:#f5f7f7;
+  --ok:#2e7d4f; --warn:#a15c07; --bad:#b3261e; --ins:#d7f0dd; --del:#f8d9d6;
+  --f-display:"Noto Serif TC","Songti TC","PMingLiU",serif;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --f-mono:ui-monospace,"Cascadia Mono",Consolas,"Courier New",monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a1b; --panel:#1c2425; --ink:#e3eaea; --muted:#97a6a7; --line:#2f3b3c;
+  --accent:#4fb3aa; --accent-ink:#0b1414; --soft:#203230; --code:#151c1d;
+  --ok:#6cc58f; --warn:#e3a14a; --bad:#f08a80; --ins:#1f4a2c; --del:#5a2522; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a1b; --panel:#1c2425; --ink:#e3eaea; --muted:#97a6a7; --line:#2f3b3c;
+  --accent:#4fb3aa; --accent-ink:#0b1414; --soft:#203230; --code:#151c1d;
+  --ok:#6cc58f; --warn:#e3a14a; --bad:#f08a80; --ins:#1f4a2c; --del:#5a2522; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.6;margin:0}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 48px;max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header.top{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;min-width:0}
+.brand h1{font-family:var(--f-display);font-size:22px;margin:0;letter-spacing:.02em}
+.unitbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0}
+.unitbar select{max-width:min(420px,70vw);font-weight:500}
+.save-state{font-size:12px;color:var(--muted)}
+nav.steps{display:flex;gap:4px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px}
+nav.steps button{border:none;background:transparent;color:var(--muted);padding:7px 12px;border-radius:7px;display:flex;gap:6px;align-items:center}
+nav.steps button .n{font-family:var(--f-mono);font-size:11.5px;border:1px solid currentColor;border-radius:99px;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center}
+nav.steps button[aria-selected="true"]{background:var(--soft);color:var(--ink);font-weight:500}
+nav.steps .badge{font-size:11px;background:var(--warn);color:#fff;border-radius:99px;padding:0 6px}
+button,.btn{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 12px;border-radius:7px;cursor:pointer;line-height:1.4}
+button:hover{border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:not-allowed}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:500}
+button.big{padding:9px 16px;font-size:14px}
+button.danger{color:var(--bad)}
+button.armed{background:var(--bad);color:#fff;border-color:var(--bad)}
+button.mini{font-size:12px;padding:3px 9px;border-radius:99px;color:var(--muted)}
+input[type=text],input[type=number],textarea,select{font:inherit;color:var(--ink);background:var(--code);border:1px solid var(--line);border-radius:7px;padding:7px 10px;width:100%;min-width:0}
+textarea{resize:vertical}
+.mono,textarea.mono{font-family:var(--f-mono);font-size:12.5px;line-height:1.55}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0}
+.ph{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.ph h2{font-size:15px;margin:0}
+.pb{padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
+.cols.w{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
+@media (max-width:900px){.cols,.cols.w{grid-template-columns:minmax(0,1fr)}}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+label.fl,.fl{font-size:12.5px;font-weight:500;color:var(--muted);letter-spacing:.02em;display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}
+.hint{color:var(--muted);font-size:12.5px;margin:0}
+h3{font-size:14px;margin:0}
+.chip{display:inline-block;font-size:11px;padding:1px 8px;border-radius:99px;border:1px solid currentColor;font-weight:500;white-space:nowrap}
+.chip.ok{color:var(--ok)}.chip.warn{color:var(--warn)}.chip.bad{color:var(--bad)}.chip.mute{color:var(--muted)}
+.drop{border:1.5px dashed var(--line);border-radius:9px;padding:16px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:6px;align-items:center}
+.drop.over{border-color:var(--accent);background:var(--soft)}
+.diff{font-size:13px;line-height:1.75;background:var(--code);border:1px solid var(--line);border-radius:7px;padding:10px;white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto}
+.diff.mono{font-size:12.5px}
+.diff ins{background:var(--ins);text-decoration:none;border-radius:3px}
+.diff del{background:var(--del);border-radius:3px}
+.diff .gap{color:var(--muted)}
+.checks{display:flex;flex-direction:column;gap:4px;font-size:13px;margin:0;padding:0;list-style:none}
+.checks li{display:flex;gap:8px;align-items:baseline}
+.checks .e{color:var(--bad)}.checks .w{color:var(--warn)}.checks .o{color:var(--ok)}
+.list{display:flex;flex-direction:column}
+.li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 2px;border-top:1px solid var(--line);flex-wrap:wrap}
+.li:first-child{border-top:none}
+.li .t{display:flex;flex-direction:column;min-width:0;gap:2px}
+.li .s{font-size:12px;color:var(--muted)}
+.envs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:700px){.envs{grid-template-columns:minmax(0,1fr)}}
+.env{border:1px solid var(--line);border-radius:9px;padding:12px;display:flex;flex-direction:column;gap:6px;cursor:pointer;background:var(--panel);min-width:0;text-align:left}
+.env[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.env .nm{font-weight:700;display:flex;justify-content:space-between;gap:6px;align-items:center}
+.env .st{font-size:12.5px;color:var(--muted)}
+.imgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.img{border:1px solid var(--line);border-radius:9px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.img .th{aspect-ratio:16/10;background:var(--code) center/contain no-repeat;max-width:100%}
+.img .mt{padding:8px;display:flex;flex-direction:column;gap:5px;font-size:12px}
+.img .mt input{font-family:var(--f-mono);font-size:12px;padding:4px 6px}
+.img .row button{font-size:11.5px;padding:3px 8px}
+.pchips{display:flex;flex-wrap:wrap;gap:6px}
+.pchips button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tw{overflow:auto;max-height:440px;border:1px solid var(--line);border-radius:8px}
+.tw table{border-collapse:collapse;width:100%;font-size:12.5px}
+.tw th,.tw td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+.tw th{position:sticky;top:0;background:var(--panel);color:var(--muted);font-weight:500;white-space:nowrap}
+.dg{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-top:1px solid var(--line)}
+.dg:first-child{border-top:none;padding-top:0}
+.dg .h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.cellchg{font-size:12.5px;padding-left:10px;border-left:2px solid var(--line)}
+iframe.pv{width:100%;height:440px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.chunks{display:flex;flex-wrap:wrap;gap:6px}
+.chunks button{font-family:var(--f-mono);font-size:12px;min-width:44px}
+.chunks button.done{background:var(--ok);color:#fff;border-color:var(--ok)}
+.toast{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;z-index:50;max-width:min(420px,calc(100vw - 32px))}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:40}
+.modal .box{background:var(--panel);border-radius:10px;border:1px solid var(--line);width:min(760px,100%);max-height:90vh;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+details>summary{cursor:pointer;color:var(--muted);font-size:13px}
+details[open]>summary{margin-bottom:8px}
+code.k{font-family:var(--f-mono);background:var(--code);border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:12px}
+ol.how{margin:0;padding-left:20px;font-size:13px;display:flex;flex-direction:column;gap:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><h1>上稿工作台</h1><span class="hint">不需登入，資料只存在這台電腦的瀏覽器</span></div>
+    <div class="unitbar">
+      <label class="fl" for="unitSel">單元</label>
+      <select id="unitSel"></select>
+      <span id="saveState" class="save-state"></span>
+    </div>
+  </header>
+
+  <nav class="steps" role="tablist" aria-label="步驟">
+    <button role="tab" data-tab="unit" aria-selected="false"><span class="n">0</span>單元設定</button>
+    <button role="tab" data-tab="data" aria-selected="false"><span class="n">1</span>資料比對</button>
+    <button role="tab" data-tab="ai" aria-selected="true"><span class="n">2</span>AI 改稿</button>
+    <button role="tab" data-tab="code" aria-selected="false"><span class="n">3</span>原始碼與版本</button>
+    <button role="tab" data-tab="img" aria-selected="false"><span class="n">4</span>圖片</button>
+    <button role="tab" data-tab="ship" aria-selected="false"><span class="n">5</span>上稿到環境 <span class="badge" id="shipBadge" hidden></span></button>
+  </nav>
+
+  <!-- 0 單元設定 -->
+  <section id="tab-unit" hidden>
+    <div class="cols">
+      <div class="panel">
+        <div class="ph"><h2>所有單元</h2><div class="row"><button id="uNew" class="primary">新增單元</button><button id="uDup">複製目前單元</button></div></div>
+        <div class="pb">
+          <input id="uSearch" type="text" placeholder="搜尋單元名稱、系統、節點位置、標籤、原始碼內文…" aria-label="搜尋單元">
+          <div id="uList" class="list"></div>
+          <div class="row"><button id="bkExport">備份全部單元</button><button id="bkImport">還原備份</button></div>
+          <p class="hint">一個 CMS 節點（一個要上稿的頁面或區塊）建一個單元。同一套版型的新活動，用「複製目前單元」最快。</p>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ph"><h2>目前單元</h2><button id="uDel" class="danger">刪除這個單元</button></div>
+        <div class="pb">
+          <div class="field"><label class="fl" for="uName">單元名稱</label><input id="uName" type="text"></div>
+          <div class="cols">
+            <div class="field"><label class="fl" for="uCms">網站／CMS 系統</label><input id="uCms" type="text" placeholder="例如：氣候署官網"></div>
+            <div class="field"><label class="fl" for="uTags">標籤</label><input id="uTags" type="text" placeholder="例如：COP31, 名單"></div>
+          </div>
+          <div class="field"><label class="fl" for="uPath">後台節點位置</label><input id="uPath" type="text" placeholder="例如：COP31 專區 > 論壇資訊"></div>
+          <h3>各環境</h3>
+          <p class="hint">圖片路徑前綴可以留空，從 CKEditor 匯入原始碼時會自動認出來。</p>
+          <div id="uEnvs" class="list"></div>
+          <div class="field"><label class="fl" for="uRules">這個單元的規則 <span>一行一條，會自動放進 AI 提示詞。AI 改錯的地方，在「AI 改稿」確認時也能一鍵加進來。</span></label><textarea id="uRules" rows="4"></textarea></div>
+          <div class="field"><label class="fl" for="uCheck">節點設定清單 <span>一行一項，會放進上稿包，在 VDI 裡照著勾。可以用 AI 從後台截圖產生。</span></label><textarea id="uCheck" rows="4"></textarea></div>
+          <div class="field"><label class="fl" for="gRules">所有單元共用的規則 <span>公司的上稿規範</span></label><textarea id="gRules" rows="3"></textarea></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 1 資料比對 -->
+  <section id="tab-data" hidden>
+    <div class="cols w">
+      <div class="panel">
+        <div class="ph"><h2>比對結果</h2><div class="row"><label class="fl" for="dA">舊</label><select id="dA" style="width:auto;max-width:220px"></select><label class="fl" for="dB">新</label><select id="dB" style="width:auto;max-width:220px"></select></div></div>
+        <div class="pb">
+          <div id="dSum" class="row"></div>
+          <div id="dOut"></div>
+          <div class="row"><button id="dCopy">複製差異文字</button><button id="dToAi" class="primary">帶著差異去 AI 改稿</button></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ph"><h2>加入資料</h2></div>
+        <div class="pb">
+          <div class="drop" id="dDrop">把電腦公會給的 Excel 拖進來（可一次拖兩版）
+            <div class="row"><button id="dPick">選擇檔案</button></div>
+            <input type="file" id="dFile" accept=".xlsx,.xls,.xlsm,.csv,.txt,.tsv" multiple hidden>
+            <span class="hint" id="xlsxState"></span>
+          </div>
+          <details><summary>或直接貼上 Excel 複製的內容</summary>
+            <div class="field"><input id="dPasteName" type="text" placeholder="這份資料的名稱，例如：電腦公會 11/07 10:00"><textarea id="dPaste" class="mono" rows="5" placeholder="在 Excel 選取範圍 → 複製 → 貼上"></textarea><div class="row"><button id="dPasteAdd">加入</button></div></div>
+          </details>
+          <h3>這個單元收過的資料</h3>
+          <div id="dSnaps" class="list"></div>
+          <p class="hint">每次加入新的一版，工具自動和上一版比對：逐列逐格列出新增、刪除、修改，連儲存格的註解也一起比。不用設定欄位。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 AI 改稿 -->
+  <section id="tab-ai">
+    <div class="panel">
+      <div class="ph"><h2>① 選擇要 AI 做什麼</h2><button id="pEditBtn" class="mini">編輯提示詞</button></div>
+      <div class="pb">
+        <div class="pchips" id="pList" role="group" aria-label="提示詞"></div>
+        <p class="hint" id="pDesc"></p>
+        <div class="field"><label class="fl" for="aiExtra">這次的補充要求 <span>可留空</span></label><textarea id="aiExtra" rows="2"></textarea><div class="row" id="extraChips"></div></div>
+        <div class="row"><button id="btnGen" class="primary big">產生提示詞並複製</button><span class="hint" id="genInfo"></span></div>
+        <div class="hint" id="attachHint"></div>
+        <details><summary>看產生的提示詞</summary><textarea id="aiPrompt" class="mono" rows="10" readonly aria-label="提示詞"></textarea></details>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h2>② 貼回 AI 的回覆</h2></div>
+      <div class="pb">
+        <textarea id="aiReply" rows="6" placeholder="把 AI 的整段回覆貼在這裡（含程式碼區塊）"></textarea>
+        <details><summary>核對用的原始資料（自動帶入最新一版資料，也可以再補貼）</summary><p class="hint" id="srcInfo"></p><textarea id="aiSrc" rows="4" placeholder="例如：電腦公會 email 內文、Word 內容"></textarea></details>
+        <div class="row"><button id="btnParse" class="primary big">檢查回覆</button></div>
+      </div>
+    </div>
+    <div class="panel" id="aiResult" hidden>
+      <div class="ph"><h2>③ 確認修改</h2><span id="aiVerdict"></span></div>
+      <div class="pb">
+        <div class="cols">
+          <div class="field"><h3>自動檢查</h3><ul class="checks" id="aiChecks"></ul></div>
+          <div class="field"><h3>AI 說它改了什麼、要問什麼</h3><div id="aiNotes"></div></div>
+        </div>
+        <h3>原始碼差異（目前版本 → AI 版本）</h3>
+        <div class="diff mono" id="aiDiff"></div>
+        <details><summary>手動調整 AI 版本（改這裡會重新檢查）</summary><textarea id="aiCand" class="mono" rows="12" spellcheck="false" aria-label="AI 版本原始碼"></textarea></details>
+        <details><summary>預覽</summary><iframe class="pv" id="aiPv" title="預覽"></iframe></details>
+        <div class="field"><label class="fl" for="aiRule">AI 這次有哪裡做得不對？寫下來，以後提示詞會自動提醒它（可留空）</label>
+          <div class="row"><input id="aiRule" type="text" placeholder="例如：職稱不要加粗；照片寬度維持 300" style="flex:1;min-width:220px"><select id="aiRuleScope" style="width:auto"><option value="unit">存到這個單元</option><option value="global">存到所有單元</option></select></div></div>
+        <div class="row"><input id="aiLabel" type="text" placeholder="版本說明，例如：依電腦公會 11/07 版更新" style="flex:1;min-width:220px"><button id="btnAccept" class="primary big">確認，存成新版本</button><button id="btnDiscard">放棄</button></div>
+      </div>
+    </div>
+    <div class="panel" id="aiText" hidden>
+      <div class="ph"><h2>③ 文字回覆</h2></div>
+      <div class="pb"><p class="hint" id="aiTextHint"></p><div class="row" id="aiTextBtns"></div></div>
+    </div>
+  </section>
+
+  <!-- 3 原始碼與版本 -->
+  <section id="tab-code" hidden>
+    <div class="cols w">
+      <div class="panel">
+        <div class="ph"><h2>目前原始碼</h2><span id="codeState" class="hint"></span></div>
+        <div class="pb">
+          <textarea id="code" class="mono" rows="18" spellcheck="false" aria-label="目前原始碼"></textarea>
+          <p class="hint">圖片路徑寫成 <code class="k">{{BASE}}檔名</code>，產出時會換成各環境的路徑。可以直接在這裡改。</p>
+          <div class="row"><input id="codeLabel" type="text" placeholder="版本說明" style="flex:1;min-width:200px"><button id="codeSave" class="primary">存成新版本</button><button id="codePv">預覽</button></div>
+          <iframe class="pv" id="codePvF" title="預覽" hidden></iframe>
+        </div>
+      </div>
+      <div class="field" style="gap:14px">
+        <div class="panel">
+          <div class="ph"><h2>從 CKEditor 匯入</h2></div>
+          <div class="pb">
+            <p class="hint">在 CMS 把 CKEditor 切到原始碼模式，全選複製，貼在這裡。第一次用某個單元時先做這一步。</p>
+            <textarea id="impCode" class="mono" rows="5" spellcheck="false" aria-label="CKEditor 原始碼"></textarea>
+            <div class="row"><label class="fl" for="impEnv">來自哪個環境</label><select id="impEnv" style="width:auto"></select></div>
+            <label class="row hint"><input type="checkbox" id="impMark" checked> 這就是該環境目前線上的內容（記為已上稿）</label>
+            <div class="row"><button id="impGo" class="primary">匯入</button></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><h2>版本紀錄</h2></div>
+          <div class="pb"><div id="vList" class="list"></div><div id="vDiff"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 圖片 -->
+  <section id="tab-img" hidden>
+    <div class="panel">
+      <div class="ph"><h2>圖片</h2><div class="row">
+        <label class="fl" for="iFmt">格式</label><select id="iFmt" style="width:auto"><option value="image/jpeg">JPEG（CMS 最保險）</option><option value="image/webp">WebP（最小）</option><option value="keep">不轉換</option></select>
+        <label class="fl" for="iMax">最長邊</label><select id="iMax" style="width:auto"><option value="0">不縮放</option><option value="2560">2560</option><option value="1920">1920</option><option value="1280">1280</option><option value="1024">1024</option><option value="800">800</option></select>
+        <label class="fl" for="iQ">品質</label><input id="iQ" type="number" min="40" max="100" step="5" style="width:72px">
+      </div></div>
+      <div class="pb">
+        <div class="drop" id="iDrop">把照片拖進來（可一次多張）。同檔名會取代舊圖，並標記為「各環境需要重傳」。
+          <div class="row"><button id="iPick">選擇圖片</button></div><input type="file" id="iFile" accept="image/*" multiple hidden></div>
+        <div id="iWarn" class="checks"></div>
+        <div class="imgs" id="iGrid"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 上稿 -->
+  <section id="tab-ship" hidden>
+    <div class="envs" id="sEnvs"></div>
+    <div class="cols w">
+      <div class="panel">
+        <div class="ph"><h2 id="sTitle">這次要上的內容</h2></div>
+        <div class="pb">
+          <div id="sWhat"></div>
+          <div class="row">
+            <label class="hint row"><input type="checkbox" id="sAllImg"> 所有圖片都放進包裹（不只還沒上過的）</label>
+            <label class="hint row"><input type="checkbox" id="sZip"> 壓縮（原始碼文字會變小，照片幾乎不變）</label>
+          </div>
+          <div class="row">
+            <label class="fl" for="sChunk">每卷大小</label><select id="sChunk" style="width:auto"><option value="200000">0.2 MB</option><option value="500000">0.5 MB</option><option value="1000000">1 MB</option><option value="2000000">2 MB</option><option value="4000000">4 MB</option><option value="0">不切割</option></select>
+            <button id="sTest" class="mini">剪貼簿容量測試</button>
+          </div>
+          <div class="row"><button id="sPack" class="primary big">打包上稿包</button><button id="sCopyHtml">只複製原始碼</button></div>
+          <div id="sPacked" hidden class="field">
+            <p class="hint" id="sPackInfo"></p>
+            <button id="sNext" class="primary big">複製下一卷</button>
+            <div class="chunks" id="sChunks"></div>
+            <p class="hint">到 VDI 的收件台按 Ctrl+V。全部貼完、上稿完成後，回來按「標記已上稿」。</p>
+          </div>
+          <div class="row"><button id="sMark">標記已上稿</button><span class="hint" id="sMarkHint"></span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ph"><h2>VDI 收件台</h2></div>
+        <div class="pb">
+          <p class="hint">VDI 被清空後，要先把收件台帶進去（約 <span id="rSize"></span>）：</p>
+          <ol class="how">
+            <li>按下面的按鈕複製收件台</li>
+            <li>VDI 裡開記事本，貼上</li>
+            <li>另存新檔：檔名 <code class="k">收件台.html</code>，編碼選 UTF-8</li>
+            <li>雙擊用瀏覽器開啟，之後的包裹都直接貼到這個網頁</li>
+          </ol>
+          <div class="row"><button id="rCopy" class="primary">複製收件台</button><button id="rDl">下載收件台檔案</button></div>
+          <p class="hint">收件台也能收物流箱 V5 的包裹。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="box">
+    <div class="row" style="justify-content:space-between"><h2 id="mTitle" style="margin:0;font-size:16px"></h2><button id="mClose">關閉</button></div>
+    <div id="mBody" class="field"></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const RECEIVER_B64='PCFkb2N0eXBlIGh0bWw+CjxodG1sIGxhbmc9InpoLVRXIj48aGVhZD48bWV0YSBjaGFyc2V0PSJ1dGYtOCI+PG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCxpbml0aWFsLXNjYWxlPTEiPgo8dGl0bGU+5LiK56i/5pS25Lu25Y+wPC90aXRsZT4KPHN0eWxlPgo6cm9vdHstLWJnOiNmM2Y1ZjQ7LS1jYXJkOiNmZmY7LS1pbms6IzFkMmEyYzstLW11dDojNWY2ZjcxOy0tbGluZTojZDNkYmRhOy0tYWM6IzBmNmI2NjstLW9rOiMyZTdkNGY7LS13YXJuOiNhMTVjMDc7LS1iYWQ6I2IzMjYxZX0KKntib3gtc2l6aW5nOmJvcmRlci1ib3h9Ym9keXttYXJnaW46MDtiYWNrZ3JvdW5kOnZhcigtLWJnKTtjb2xvcjp2YXIoLS1pbmspO2ZvbnQ6MTRweC8xLjYgIk1pY3Jvc29mdCBKaGVuZ0hlaSIsIlBpbmdGYW5nIFRDIixzeXN0ZW0tdWksc2Fucy1zZXJpZn0KLnd7bWF4LXdpZHRoOjk4MHB4O21hcmdpbjowIGF1dG87cGFkZGluZzoxNnB4O2Rpc3BsYXk6ZmxleDtmbGV4LWRpcmVjdGlvbjpjb2x1bW47Z2FwOjEycHh9Cmgxe21hcmdpbjowO2ZvbnQtc2l6ZToyMHB4fWgye21hcmdpbjowO2ZvbnQtc2l6ZToxNXB4fXB7bWFyZ2luOjB9Lm11dHtjb2xvcjp2YXIoLS1tdXQpO2ZvbnQtc2l6ZToxM3B4fQp0ZXh0YXJlYXt3aWR0aDoxMDAlO2ZvbnQ6MTIuNXB4LzEuNSBDb25zb2xhcyxtb25vc3BhY2U7Ym9yZGVyOjJweCBkYXNoZWQgdmFyKC0tYWMpO2JvcmRlci1yYWRpdXM6OHB4O3BhZGRpbmc6MTBweDtiYWNrZ3JvdW5kOiNmZmY7Y29sb3I6dmFyKC0taW5rKX0KI3Bhe2hlaWdodDo3MHB4fQouY2FyZHtiYWNrZ3JvdW5kOnZhcigtLWNhcmQpO2JvcmRlcjoxcHggc29saWQgdmFyKC0tbGluZSk7Ym9yZGVyLXJhZGl1czoxMHB4O3BhZGRpbmc6MTRweDtkaXNwbGF5OmZsZXg7ZmxleC1kaXJlY3Rpb246Y29sdW1uO2dhcDoxMHB4fQouY2FyZC5kb25le2JvcmRlci1jb2xvcjp2YXIoLS1vayl9Ci5yb3d7ZGlzcGxheTpmbGV4O2ZsZXgtd3JhcDp3cmFwO2dhcDo4cHg7YWxpZ24taXRlbXM6Y2VudGVyfQpidXR0b257Zm9udDppbmhlcml0O2ZvbnQtc2l6ZToxM3B4O2JvcmRlcjoxcHggc29saWQgdmFyKC0tbGluZSk7YmFja2dyb3VuZDojZmZmO2NvbG9yOnZhcigtLWluayk7cGFkZGluZzo2cHggMTJweDtib3JkZXItcmFkaXVzOjdweDtjdXJzb3I6cG9pbnRlcn0KYnV0dG9uLnB7YmFja2dyb3VuZDp2YXIoLS1hYyk7Y29sb3I6I2ZmZjtib3JkZXItY29sb3I6dmFyKC0tYWMpfWJ1dHRvbjpkaXNhYmxlZHtvcGFjaXR5Oi41fQoubXNne3BhZGRpbmc6OHB4IDEwcHg7Ym9yZGVyLXJhZGl1czo3cHg7Zm9udC1zaXplOjEzLjVweH0ubXNnLm9re2JhY2tncm91bmQ6I2U0ZjRlYTtjb2xvcjojMWY1YzM4fS5tc2cuZXJye2JhY2tncm91bmQ6I2ZiZTdlNTtjb2xvcjojOGMxZDE2fS5tc2cuaW5mb3tiYWNrZ3JvdW5kOiNlM2VlZjA7Y29sb3I6IzBmNGY0Yn0ubXNnLndhcm57YmFja2dyb3VuZDojZmRmMWRjO2NvbG9yOiM3YTQ1MDR9Ci5ncmlke2Rpc3BsYXk6ZmxleDtmbGV4LXdyYXA6d3JhcDtnYXA6M3B4fS5jZWxse3dpZHRoOjIycHg7aGVpZ2h0OjIycHg7Ym9yZGVyLXJhZGl1czozcHg7YmFja2dyb3VuZDojZTJlOGU3O2ZvbnQtc2l6ZToxMHB4O2xpbmUtaGVpZ2h0OjIycHg7dGV4dC1hbGlnbjpjZW50ZXI7Y29sb3I6dmFyKC0tbXV0KX0uY2VsbC5ne2JhY2tncm91bmQ6dmFyKC0tb2spO2NvbG9yOiNmZmZ9Ci5pdHtkaXNwbGF5OmZsZXg7anVzdGlmeS1jb250ZW50OnNwYWNlLWJldHdlZW47YWxpZ24taXRlbXM6Y2VudGVyO2dhcDo4cHg7cGFkZGluZzo2cHggMDtib3JkZXItdG9wOjFweCBzb2xpZCB2YXIoLS1saW5lKX0uaXQ6Zmlyc3QtY2hpbGR7Ym9yZGVyLXRvcDowfQouc3RlcHtib3JkZXItbGVmdDozcHggc29saWQgdmFyKC0tYWMpO3BhZGRpbmctbGVmdDoxMHB4O2Rpc3BsYXk6ZmxleDtmbGV4LWRpcmVjdGlvbjpjb2x1bW47Z2FwOjZweH0KLmNre2Rpc3BsYXk6ZmxleDtnYXA6OHB4O2FsaWduLWl0ZW1zOmZsZXgtc3RhcnR9LmNrIGlucHV0e21hcmdpbi10b3A6NHB4fQpwcmV7d2hpdGUtc3BhY2U6cHJlLXdyYXA7d29yZC1icmVhazpicmVhay13b3JkO2JhY2tncm91bmQ6I2Y3ZjlmOTtib3JkZXI6MXB4IHNvbGlkIHZhcigtLWxpbmUpO2JvcmRlci1yYWRpdXM6N3B4O3BhZGRpbmc6OHB4O21hcmdpbjowO2ZvbnQ6MTIuNXB4LzEuNiBDb25zb2xhcyxtb25vc3BhY2U7bWF4LWhlaWdodDoyNjBweDtvdmVyZmxvdzphdXRvfQppZnJhbWV7d2lkdGg6MTAwJTtoZWlnaHQ6NDIwcHg7Ym9yZGVyOjFweCBzb2xpZCB2YXIoLS1saW5lKTtib3JkZXItcmFkaXVzOjhweDtiYWNrZ3JvdW5kOiNmZmZ9Ci5oaWR7ZGlzcGxheTpub25lIWltcG9ydGFudH0KPC9zdHlsZT48L2hlYWQ+PGJvZHk+PGRpdiBjbGFzcz0idyI+CjxkaXY+PGgxPuS4iueov+aUtuS7tuWPsDwvaDE+PHAgY2xhc3M9Im11dCI+5Zyo6YCZ5LiA6aCB5Lu75L2V5Zyw5pa55oyJIEN0cmwrViDosrzkuIrljIXoo7njgILpoIbluo/kuoLjgIHph43opIfosrzpg73mspLpl5zkv4LvvJvliIbpoIHpl5zmjonph43plovkuZ/mnIPmjqXokZfmlLbjgILljIXoo7noq4vnm7TmjqXosrzliLDpgJnoo6HvvIzkuI3nlKjlhYjosrzliLDoqJjkuovmnKzjgII8L3A+PC9kaXY+Cjx0ZXh0YXJlYSBpZD0icGEiIHBsYWNlaG9sZGVyPSLpu57pgJnoo6HvvIzmjIkgQ3RybCtWIOiyvOS4iuWMheijuSI+PC90ZXh0YXJlYT4KPGRpdiBpZD0ibXNnIiBjbGFzcz0ibXNnIGhpZCI+PC9kaXY+CjxkaXYgaWQ9InRlc3RzIiBjbGFzcz0iY2FyZCBoaWQiPjxoMj7liarosrznsL/lrrnph4/muKzoqaY8L2gyPjxkaXYgaWQ9InRsIj48L2Rpdj48cCBjbGFzcz0ibXV0Ij7lvp7lsI/liLDlpKfkuIDljbfkuIDljbfosrzjgILlh7rnj77jgIzkuI3lrozmlbTjgI3nmoTpgqPkuIDntJrvvIzku6PooajotoXpgY7kuIrpmZDvvJvlt6XkvZzlj7DnmoTjgIzmr4/ljbflpKflsI/jgI3oq4vpgbjlroPliY3kuIDntJrjgII8L3A+PC9kaXY+CjxkaXYgaWQ9Imxpc3QiPjwvZGl2Pgo8ZGl2IGNsYXNzPSJyb3ciPjxidXR0b24gaWQ9ImNsciI+5riF56m65YWo6YOoPC9idXR0b24+PHNwYW4gY2xhc3M9Im11dCI+5pS25Lu25Y+w54mI5pysIDEuMO+8jOWPr+aOpeaUtueJqea1geeusSBWNSDljIXoo7k8L3NwYW4+PC9kaXY+CjwvZGl2Pgo8c2NyaXB0PgondXNlIHN0cmljdCc7CmNvbnN0ICQ9aWQ9PmRvY3VtZW50LmdldEVsZW1lbnRCeUlkKGlkKTsKY29uc3QgVD1uZXcgVWludDMyQXJyYXkoMjU2KTtmb3IobGV0IG49MDtuPDI1NjtuKyspe2xldCBjPW47Zm9yKGxldCBrPTA7azw4O2srKyljPWMmMT8weEVEQjg4MzIwXihjPj4+MSk6Yz4+PjE7VFtuXT1jPj4+MH0KY29uc3QgaDg9bj0+KG4+Pj4wKS50b1N0cmluZygxNikucGFkU3RhcnQoOCwnMCcpOwpmdW5jdGlvbiBjcmNTKHMpe2xldCBjPS0xO2ZvcihsZXQgaT0wO2k8cy5sZW5ndGg7aSsrKWM9VFsoY15zLmNoYXJDb2RlQXQoaSkpJjI1NV1eKGM+Pj44KTtyZXR1cm4gaDgoY14tMSl9CmZ1bmN0aW9uIGNyY0IodSl7bGV0IGM9LTE7Zm9yKGxldCBpPTA7aTx1Lmxlbmd0aDtpKyspYz1UWyhjXnVbaV0pJjI1NV1eKGM+Pj44KTtyZXR1cm4gKGNeLTEpPj4+MH0KZnVuY3Rpb24gc2hhSnMoYil7Y29uc3QgSz1bXSxIPVtdO3tsZXQgbj0yLGs9MDtjb25zdCBwcj14PT57Zm9yKGxldCBpPTI7aSppPD14O2krKylpZih4JWk9PT0wKXJldHVybiBmYWxzZTtyZXR1cm4gdHJ1ZX0sZnI9eD0+KCh4LU1hdGguZmxvb3IoeCkpKjQyOTQ5NjcyOTYpPj4+MDt3aGlsZShrPDY0KXtpZihwcihuKSl7aWYoazw4KUhba109ZnIoTWF0aC5wb3cobiwxLzIpKTtLW2tdPWZyKE1hdGguY2JydChuKSk7aysrfW4rK319CiBjb25zdCBMPWIubGVuZ3RoLFA9TWF0aC5jZWlsKChMKzkpLzY0KSo2NCx1PW5ldyBVaW50OEFycmF5KFApO3Uuc2V0KGIpO3VbTF09MTI4O2NvbnN0IGQ9bmV3IERhdGFWaWV3KHUuYnVmZmVyKTtkLnNldFVpbnQzMihQLTgsTWF0aC5mbG9vcihMLzUzNjg3MDkxMikpO2Quc2V0VWludDMyKFAtNCwoTDw8Myk+Pj4wKTtjb25zdCBXPW5ldyBVaW50MzJBcnJheSg2NCkscj0oeCxuKT0+KHg+Pj5uKXwoeDw8KDMyLW4pKTsKIGZvcihsZXQgbz0wO288UDtvKz02NCl7Zm9yKGxldCBpPTA7aTwxNjtpKyspV1tpXT1kLmdldFVpbnQzMihvK2kqNCk7Zm9yKGxldCBpPTE2O2k8NjQ7aSsrKVdbaV09KFdbaS0xNl0rKHIoV1tpLTE1XSw3KV5yKFdbaS0xNV0sMTgpXihXW2ktMTVdPj4+MykpK1dbaS03XSsocihXW2ktMl0sMTcpXnIoV1tpLTJdLDE5KV4oV1tpLTJdPj4+MTApKSk+Pj4wOwogIGxldFthLGIyLGMsZTAsZSxmLGcsaF09SDtmb3IobGV0IGk9MDtpPDY0O2krKyl7Y29uc3QgdDE9KGgrKHIoZSw2KV5yKGUsMTEpXnIoZSwyNSkpKygoZSZmKV4ofmUmZykpK0tbaV0rV1tpXSk+Pj4wLHQyPSgocihhLDIpXnIoYSwxMylecihhLDIyKSkrKChhJmIyKV4oYSZjKV4oYjImYykpKT4+PjA7aD1nO2c9ZjtmPWU7ZT0oZTArdDEpPj4+MDtlMD1jO2M9YjI7YjI9YTthPSh0MSt0Mik+Pj4wfQogIFthLGIyLGMsZTAsZSxmLGcsaF0uZm9yRWFjaCgodixpKT0+SFtpXT0oSFtpXSt2KT4+PjApfXJldHVybiBILm1hcChoOCkuam9pbignJyl9CmFzeW5jIGZ1bmN0aW9uIHNoYSh1KXt0cnl7aWYoY3J5cHRvJiZjcnlwdG8uc3VidGxlKXtjb25zdCBkPWF3YWl0IGNyeXB0by5zdWJ0bGUuZGlnZXN0KCdTSEEtMjU2Jyx1KTtyZXR1cm5bLi4ubmV3IFVpbnQ4QXJyYXkoZCldLm1hcCh4PT54LnRvU3RyaW5nKDE2KS5wYWRTdGFydCgyLCcwJykpLmpvaW4oJycpfX1jYXRjaChlKXt9cmV0dXJuIHNoYUpzKHUpfQpmdW5jdGlvbiBiNjRkKHMpe2NvbnN0IGE9YXRvYihzKSx1PW5ldyBVaW50OEFycmF5KGEubGVuZ3RoKTtmb3IobGV0IGk9MDtpPGEubGVuZ3RoO2krKyl1W2ldPWEuY2hhckNvZGVBdChpKTtyZXR1cm4gdX0KZnVuY3Rpb24gY2F0KGFycil7Y29uc3Qgbz1uZXcgVWludDhBcnJheShhcnIucmVkdWNlKChzLGEpPT5zK2EubGVuZ3RoLDApKTtsZXQgcD0wO2Fyci5mb3JFYWNoKGE9PntvLnNldChhLHApO3ArPWEubGVuZ3RofSk7cmV0dXJuIG99CmFzeW5jIGZ1bmN0aW9uIGluZmxhdGUodSl7aWYodHlwZW9mIERlY29tcHJlc3Npb25TdHJlYW09PT0ndW5kZWZpbmVkJyl0aHJvdyBuZXcgRXJyb3IoJ+mAmeWAi+eAj+imveWZqOeEoeazleino+Wjk+e4ru+8jOiri+WcqOW3peS9nOWPsOWPlua2iOOAjOWjk+e4ruOAjeW+jOmHjeaWsOaJk+WMhScpO3JldHVybiBuZXcgVWludDhBcnJheShhd2FpdCBuZXcgUmVzcG9uc2UobmV3IEJsb2IoW3VdKS5zdHJlYW0oKS5waXBlVGhyb3VnaChuZXcgRGVjb21wcmVzc2lvblN0cmVhbSgnZGVmbGF0ZS1yYXcnKSkpLmFycmF5QnVmZmVyKCkpfQpmdW5jdGlvbiB1bnppcCh1KXtjb25zdCB2PW5ldyBEYXRhVmlldyh1LmJ1ZmZlcix1LmJ5dGVPZmZzZXQsdS5ieXRlTGVuZ3RoKSxkZWM9bmV3IFRleHREZWNvZGVyKCk7bGV0IGU9LTE7Zm9yKGxldCBpPXUubGVuZ3RoLTIyO2k+PU1hdGgubWF4KDAsdS5sZW5ndGgtNjU1NTcpO2ktLSlpZih2LmdldFVpbnQzMihpLHRydWUpPT09MHgwNjA1NGI1MCl7ZT1pO2JyZWFrfQogaWYoZTwwKXRocm93IG5ldyBFcnJvcign5YyF6KO55YWn5a655LiN5piv5pyJ5pWI55qE5qqU5qGI57WE5ZCIJyk7Y29uc3Qgbj12LmdldFVpbnQxNihlKzEwLHRydWUpO2xldCBwPXYuZ2V0VWludDMyKGUrMTYsdHJ1ZSk7Y29uc3Qgb3V0PVtdOwogZm9yKGxldCBrPTA7azxuO2srKyl7aWYodi5nZXRVaW50MzIocCx0cnVlKSE9PTB4MDIwMTRiNTApdGhyb3cgbmV3IEVycm9yKCfmqpTmoYjnm67pjITmkI3mr4AnKTtjb25zdCBtPXYuZ2V0VWludDE2KHArMTAsdHJ1ZSksY3JjPXYuZ2V0VWludDMyKHArMTYsdHJ1ZSksY3M9di5nZXRVaW50MzIocCsyMCx0cnVlKSxubD12LmdldFVpbnQxNihwKzI4LHRydWUpLHhsPXYuZ2V0VWludDE2KHArMzAsdHJ1ZSksY2w9di5nZXRVaW50MTYocCszMix0cnVlKSxsaD12LmdldFVpbnQzMihwKzQyLHRydWUpOwogIGNvbnN0IG5hbWU9ZGVjLmRlY29kZSh1LnN1YmFycmF5KHArNDYscCs0NitubCkpO2lmKG0hPT0wKXRocm93IG5ldyBFcnJvcign5LiN5pSv5o+055qE5aOT57iu5qC85byPJyk7Y29uc3Qgcz1saCszMCt2LmdldFVpbnQxNihsaCsyNix0cnVlKSt2LmdldFVpbnQxNihsaCsyOCx0cnVlKSxkYXRhPXUuc3ViYXJyYXkocyxzK2NzKTtpZihjcmNCKGRhdGEpIT09Y3JjKXRocm93IG5ldyBFcnJvcign44CMJytuYW1lKyfjgI3moKHpqZfkuI3nrKYnKTtvdXQucHVzaCh7bmFtZSxkYXRhfSk7cCs9NDYrbmwreGwrY2x9cmV0dXJuIG91dH0KY29uc3QgUkU9L15cP09GWChbNTZdKTooWzAtOWEtZl17MTJ9KTooW0EtWmEtejAtOSsvPV0rKTooXGQrKTooXGQrKTooW0JGWlRdKyk6KFswLTlhLWZdezY0fSk6KFswLTlhLWZdezh9KVw/KFtcc1xTXSopJC87CmZ1bmN0aW9uIHBhcnNlKHJhdyl7Y29uc3QgdD1yYXcucmVwbGFjZSgvXHMvZywnJyksbT10Lm1hdGNoKFJFKTtpZighbSlyZXR1cm57b2s6ZmFsc2UsZTon55yL5LiN5Ye65piv5YyF6KO577yM6KuL56K66KqN5pW05Y236YO95pyJ6KSH6KO95Yiw77yI6ZaL6aCt5oeJ6Kmy5pivID9PRljvvIknfTsKIGxldCBuYW1lO3RyeXtuYW1lPWRlY29kZVVSSUNvbXBvbmVudChhdG9iKG1bM10pKX1jYXRjaChlKXtyZXR1cm57b2s6ZmFsc2UsZTon5YyF6KO55qiZ6aCt5pCN5q+AJ319Y29uc3QgaWR4PSttWzRdLHRvdGFsPSttWzVdLGRhdGE9bVs5XTsKIGNvbnN0IHI9e29rOnRydWUsa2V5Om1bMl0sbmFtZSxpZHgsdG90YWwsZmxhZ3M6bVs2XSxzaGE6bVs3XSxkYXRhLGNyY09rOmNyY1MoZGF0YSk9PT1tWzhdfTtpZihpZHg8MXx8aWR4PnRvdGFsKXJldHVybntvazpmYWxzZSxlOifljbfomZ/kuI3lkIjnkIYnfTtyZXR1cm4gcn0KY29uc3QgTUlNRT17cGRmOidhcHBsaWNhdGlvbi9wZGYnLHdlYnA6J2ltYWdlL3dlYnAnLGpwZzonaW1hZ2UvanBlZycsanBlZzonaW1hZ2UvanBlZycscG5nOidpbWFnZS9wbmcnLGdpZjonaW1hZ2UvZ2lmJyxzdmc6J2ltYWdlL3N2Zyt4bWwnLHppcDonYXBwbGljYXRpb24vemlwJyxodG1sOid0ZXh0L2h0bWwnLHR4dDondGV4dC9wbGFpbicsanNvbjonYXBwbGljYXRpb24vanNvbid9Owpjb25zdCBtaW1lPW49Pk1JTUVbbi5zcGxpdCgnLicpLnBvcCgpLnRvTG93ZXJDYXNlKCldfHwnYXBwbGljYXRpb24vb2N0ZXQtc3RyZWFtJzsKY29uc3QgZnN6PW49Pm48MTAyND9uKycgQic6bjwxMDQ4NTc2PyhuLzEwMjQpLnRvRml4ZWQoMSkrJyBLQic6KG4vMTA0ODU3NikudG9GaXhlZCgyKSsnIE1CJzsKZnVuY3Rpb24gZGwoYmxvYixuYW1lKXtjb25zdCBhPWRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ2EnKTthLmhyZWY9VVJMLmNyZWF0ZU9iamVjdFVSTChibG9iKTthLmRvd25sb2FkPW5hbWU7ZG9jdW1lbnQuYm9keS5hcHBlbmRDaGlsZChhKTthLmNsaWNrKCk7YS5yZW1vdmUoKTtzZXRUaW1lb3V0KCgpPT5VUkwucmV2b2tlT2JqZWN0VVJMKGEuaHJlZiksMzAwMCl9CmFzeW5jIGZ1bmN0aW9uIGNvcHkocyl7dHJ5e2lmKG5hdmlnYXRvci5jbGlwYm9hcmQmJm5hdmlnYXRvci5jbGlwYm9hcmQud3JpdGVUZXh0KXthd2FpdCBuYXZpZ2F0b3IuY2xpcGJvYXJkLndyaXRlVGV4dChzKTtyZXR1cm4gdHJ1ZX19Y2F0Y2goZSl7fWNvbnN0IHQ9ZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgndGV4dGFyZWEnKTt0LnZhbHVlPXM7dC5zdHlsZS5wb3NpdGlvbj0nZml4ZWQnO3Quc3R5bGUub3BhY2l0eT0nMCc7ZG9jdW1lbnQuYm9keS5hcHBlbmRDaGlsZCh0KTt0LnNlbGVjdCgpO2xldCBvaz1mYWxzZTt0cnl7b2s9ZG9jdW1lbnQuZXhlY0NvbW1hbmQoJ2NvcHknKX1jYXRjaChlKXt9dC5yZW1vdmUoKTtyZXR1cm4gb2t9CmZ1bmN0aW9uIGVsKHRhZyxjbHMsdHh0KXtjb25zdCBlPWRvY3VtZW50LmNyZWF0ZUVsZW1lbnQodGFnKTtpZihjbHMpZS5jbGFzc05hbWU9Y2xzO2lmKHR4dCE9PXVuZGVmaW5lZCllLnRleHRDb250ZW50PXR4dDtyZXR1cm4gZX0KZnVuY3Rpb24gc2F5KHQsYyl7Y29uc3QgbT0kKCdtc2cnKTttLnRleHRDb250ZW50PXQ7bS5jbGFzc05hbWU9J21zZyAnK2N9Ci8qIOaWt+e3mue6jOaUtu+8muWtmOWcqOeAj+imveWZqCAqLwpsZXQgREI9bnVsbDtjb25zdCBHPW5ldyBNYXAoKTsKZnVuY3Rpb24gZGJPcGVuKCl7cmV0dXJuIG5ldyBQcm9taXNlKHI9Pnt0cnl7Y29uc3QgcT1pbmRleGVkREIub3BlbignY21zLXJlY2VpdmVyJywxKTtxLm9udXBncmFkZW5lZWRlZD0oKT0+cS5yZXN1bHQuY3JlYXRlT2JqZWN0U3RvcmUoJ2cnKTtxLm9uc3VjY2Vzcz0oKT0+e0RCPXEucmVzdWx0O3IoKX07cS5vbmVycm9yPSgpPT5yKCl9Y2F0Y2goZSl7cigpfX0pfQpmdW5jdGlvbiBkYlB1dChnKXtpZighREIpcmV0dXJuO3RyeXtjb25zdHtlbCx1cmxzLC4uLnJlc3R9PWc7cmVzdC5jaHVua3M9Wy4uLmcuY2h1bmtzXTtEQi50cmFuc2FjdGlvbignZycsJ3JlYWR3cml0ZScpLm9iamVjdFN0b3JlKCdnJykucHV0KHJlc3QsZy5rZXkpfWNhdGNoKGUpe319CmZ1bmN0aW9uIGRiRGVsKGspe2lmKCFEQilyZXR1cm47dHJ5e0RCLnRyYW5zYWN0aW9uKCdnJywncmVhZHdyaXRlJykub2JqZWN0U3RvcmUoJ2cnKS5kZWxldGUoayl9Y2F0Y2goZSl7fX0KZnVuY3Rpb24gZGJBbGwoKXtyZXR1cm4gbmV3IFByb21pc2Uocj0+e2lmKCFEQilyZXR1cm4gcihbXSk7dHJ5e2NvbnN0IHE9REIudHJhbnNhY3Rpb24oJ2cnKS5vYmplY3RTdG9yZSgnZycpLmdldEFsbCgpO3Eub25zdWNjZXNzPSgpPT5yKHEucmVzdWx0fHxbXSk7cS5vbmVycm9yPSgpPT5yKFtdKX1jYXRjaChlKXtyKFtdKX19KX0KLyog5pS25Lu2ICovCmZ1bmN0aW9uIG9uUGFzdGUodGV4dCl7aWYoIXRleHR8fCF0ZXh0LnRyaW0oKSlyZXR1cm47Y29uc3Qgcj1wYXJzZSh0ZXh0KTtpZighci5vayl7c2F5KCfimqAgJytyLmUsJ2VycicpO3JldHVybn0KIGlmKHIuZmxhZ3MuaW5jbHVkZXMoJ1QnKSl7dGVzdFJlc3VsdChyKTtyZXR1cm59CiBpZighci5jcmNPayl7c2F5KCfimqDjgIwnK3IubmFtZSsn44CN56ysICcrci5pZHgrJyDljbflhaflrrnkuI3lrozmlbTvvIjmoKHpqZfkuI3nrKbvvInvvIzoq4vlm57lt6XkvZzlj7Dph43mlrDopIfoo73pgJnkuIDljbfjgILoi6XkuIDnm7TlpLHmlZfvvIzku6Pooajmr4/ljbflpKrlpKfvvIzoq4vmiormr4/ljbflpKflsI/oqr/lsI/jgIInLCdlcnInKTtyZXR1cm59CiBsZXQgZz1HLmdldChyLmtleSk7aWYoIWcpe2c9e2tleTpyLmtleSxuYW1lOnIubmFtZSx0b3RhbDpyLnRvdGFsLGZsYWdzOnIuZmxhZ3Msc2hhOnIuc2hhLGNodW5rczpuZXcgTWFwKCksZG9uZTpmYWxzZSx0OkRhdGUubm93KCl9O0cuc2V0KHIua2V5LGcpfQogaWYoZy5kb25lKXtzYXkoJ+OAjCcrZy5uYW1lKyfjgI3lt7LntpPpgoTljp/lrozmiJDvvIzpgJnkuIDljbfnlaXpgY7jgIInLCdpbmZvJyk7cmV0dXJufQogaWYoZy5jaHVua3MuaGFzKHIuaWR4KSl7c2F5KCfnrKwgJytyLmlkeCsnIOWNt+W3sue2k+aUtumBju+8jOeVpemBju+8iOebruWJjSAnK2cuY2h1bmtzLnNpemUrJy8nK2cudG90YWwrJ++8ieOAgicsJ2luZm8nKTtyZXR1cm59CiBnLmNodW5rcy5zZXQoci5pZHgsci5kYXRhKTtjb25zdCBsZWZ0PWcudG90YWwtZy5jaHVua3Muc2l6ZTtzYXkoJ+KckyDmlLbliLDjgIwnK2cubmFtZSsn44CN56ysICcrci5pZHgrJyAvICcrZy50b3RhbCsnIOWNtycrKGxlZnQ/J++8jOmChOW3riAnK2xlZnQrJyDljbcnOifvvIzlt7LmlLbpvYonKSwnb2snKTsKIGRiUHV0KGcpO2RyYXcoZyk7aWYoIWxlZnQpYnVpbGQoZyl9CmNvbnN0IHRlc3RzPW5ldyBNYXAoKTsKZnVuY3Rpb24gdGVzdFJlc3VsdChyKXt0ZXN0cy5zZXQoci5uYW1lLHRlc3RzLmdldChyLm5hbWUpfHxyLmNyY09rKTskKCd0ZXN0cycpLmNsYXNzTGlzdC5yZW1vdmUoJ2hpZCcpO2NvbnN0IHRsPSQoJ3RsJyk7dGwuaW5uZXJIVE1MPScnO1suLi50ZXN0c10uZm9yRWFjaCgoW24sb2tdKT0+dGwuYXBwZW5kQ2hpbGQoZWwoJ2RpdicsJ21zZyAnKyhvaz8nb2snOidlcnInKSwob2s/J+KckyAnOifinJcgJykrbisob2s/J++8muWujOaVtOaUtuWIsCc6J++8muWFp+WuueS4jeWujOaVtO+8jOi2hemBjuWJquiyvOewv+S4iumZkCcpKSkpO3NheShyLm5hbWUrKHIuY3JjT2s/J++8mumAmumBjic6J++8muS4jeWujOaVtCcpLHIuY3JjT2s/J29rJzonZXJyJyl9CmFzeW5jIGZ1bmN0aW9uIGJ1aWxkKGcpe2lmKGcuYnVzeXx8Zy5kb25lKXJldHVybjtnLmJ1c3k9dHJ1ZTtnLmdtPVsnaW5mbycsJ+mChOWOn+iIh+mpl+itieS4reKApiddO2RyYXcoZyk7CiB0cnl7bGV0IHU9Y2F0KFsuLi5BcnJheShnLnRvdGFsKV0ubWFwKChfLGkpPT5iNjRkKGcuY2h1bmtzLmdldChpKzEpKSkpO2lmKGF3YWl0IHNoYSh1KSE9PWcuc2hhKXRocm93IG5ldyBFcnJvcign5pW05qqU6amX6K2J5LiN56ym77yM5Y+v6IO95re35YWl5Y+m5LiA5qyh5omT5YyF55qE5Y2377yM6KuL5riF6Zmk5b6M6YeN6LK8Jyk7CiAgaWYoZy5mbGFncy5pbmNsdWRlcygnWicpKXU9YXdhaXQgaW5mbGF0ZSh1KTtnLmJ5dGVzPXU7Zy5jaHVua3M9bmV3IE1hcCgpO2cuZG9uZT10cnVlO2cuZ209bnVsbDtkYlB1dChnKX0KIGNhdGNoKGUpe2cuZ209WydlcnInLCfpgoTljp/lpLHmlZfvvJonK2UubWVzc2FnZV19Zy5idXN5PWZhbHNlO2RyYXcoZyl9CmZ1bmN0aW9uIGRyYXcoZyl7aWYoIWcuZWwpe2cuZWw9ZWwoJ2RpdicsJ2NhcmQnKTskKCdsaXN0JykucHJlcGVuZChnLmVsKX1jb25zdCBiPWcuZWw7Yi5jbGFzc05hbWU9J2NhcmQnKyhnLmRvbmU/JyBkb25lJzonJyk7Yi5pbm5lckhUTUw9Jyc7CiBjb25zdCBoZD1lbCgnZGl2Jywncm93Jyk7aGQuYXBwZW5kQ2hpbGQoZWwoJ2gyJywnJyxnLm5hbWUpKTtoZC5hcHBlbmRDaGlsZChlbCgnc3BhbicsJ211dCcsZy5kb25lPyflt7LpgoTljp8nOmcuY2h1bmtzLnNpemUrJyAvICcrZy50b3RhbCsnIOWNtycpKTtiLmFwcGVuZENoaWxkKGhkKTsKIGlmKCFnLmRvbmUpe2NvbnN0IGdyPWVsKCdkaXYnLCdncmlkJyk7Zm9yKGxldCBpPTE7aTw9Zy50b3RhbDtpKyspZ3IuYXBwZW5kQ2hpbGQoZWwoJ3NwYW4nLCdjZWxsJysoZy5jaHVua3MuaGFzKGkpPycgZyc6JycpLFN0cmluZyhpKSkpO2IuYXBwZW5kQ2hpbGQoZ3IpOwogIGNvbnN0IG1pc3M9W107Zm9yKGxldCBpPTE7aTw9Zy50b3RhbDtpKyspaWYoIWcuY2h1bmtzLmhhcyhpKSltaXNzLnB1c2goaSk7aWYobWlzcy5sZW5ndGgmJmcuY2h1bmtzLnNpemUpYi5hcHBlbmRDaGlsZChlbCgncCcsJ211dCcsJ+mChOe8uuesrCAnK21pc3Muc2xpY2UoMCwyMCkuam9pbign44CBJykrKG1pc3MubGVuZ3RoPjIwPyfigKYnOicnKSsnIOWNtycpKX0KIGlmKGcuZ20pYi5hcHBlbmRDaGlsZChlbCgnZGl2JywnbXNnICcrZy5nbVswXSxnLmdtWzFdKSk7CiBpZihnLmRvbmUpdHJ5e3Nob3dEb25lKGcsYil9Y2F0Y2goZSl7Yi5hcHBlbmRDaGlsZChlbCgnZGl2JywnbXNnIGVycicsJ+eEoeazlemhr+ekuuWFp+Wuue+8micrZS5tZXNzYWdlKSl9CiBjb25zdCBhY3Q9ZWwoJ2RpdicsJ3JvdycpLHJtPWVsKCdidXR0b24nLCcnLCfmuIXpmaTpgJnlgIvljIXoo7knKTtybS5vbmNsaWNrPSgpPT57Ry5kZWxldGUoZy5rZXkpO2RiRGVsKGcua2V5KTsoZy51cmxzfHxbXSkuZm9yRWFjaCh1PT5VUkwucmV2b2tlT2JqZWN0VVJMKHUpKTtiLnJlbW92ZSgpfTthY3QuYXBwZW5kQ2hpbGQocm0pO2IuYXBwZW5kQ2hpbGQoYWN0KX0KZnVuY3Rpb24gc2hvd0RvbmUoZyxiKXtjb25zdCBmaWxlcz1nLmZsYWdzLmluY2x1ZGVzKCdCJyk/dW56aXAoZy5ieXRlcyk6W3tuYW1lOmcubmFtZSxkYXRhOmcuYnl0ZXN9XTtjb25zdCBtYW49ZmlsZXMuZmluZChmPT5mLm5hbWU9PT0nbWFuaWZlc3QuanNvbicpOwogaWYobWFuKXtsZXQgbTt0cnl7bT1KU09OLnBhcnNlKG5ldyBUZXh0RGVjb2RlcigpLmRlY29kZShtYW4uZGF0YSkpfWNhdGNoKGUpe209bnVsbH1pZihtJiZtLnR5cGU9PT0nY21zLXBhY2snKXtzaG93UGFjayhnLGIsbSxmaWxlcyk7cmV0dXJufX0KIGNvbnN0IGJveD1lbCgnZGl2Jyk7ZmlsZXMuZm9yRWFjaChmPT57Y29uc3QgaXQ9ZWwoJ2RpdicsJ2l0Jyk7aXQuYXBwZW5kQ2hpbGQoZWwoJ3NwYW4nLCcnLGYubmFtZSsn77yIJytmc3ooZi5kYXRhLmxlbmd0aCkrJ++8iScpKTtjb25zdCBkPWVsKCdidXR0b24nLCdwJywn5LiL6LyJJyk7ZC5vbmNsaWNrPSgpPT5kbChuZXcgQmxvYihbZi5kYXRhXSx7dHlwZTptaW1lKGYubmFtZSl9KSxmLm5hbWUpO2l0LmFwcGVuZENoaWxkKGQpO2JveC5hcHBlbmRDaGlsZChpdCl9KTsKIGlmKGZpbGVzLmxlbmd0aD4xKXtjb25zdCBhbGw9ZWwoJ2J1dHRvbicsJ3AnLCflhajpg6jkuIvovInvvIgnK2ZpbGVzLmxlbmd0aCsnIOWAi++8iScpO2FsbC5vbmNsaWNrPWFzeW5jKCk9Pntmb3IoY29uc3QgZiBvZiBmaWxlcyl7ZGwobmV3IEJsb2IoW2YuZGF0YV0se3R5cGU6bWltZShmLm5hbWUpfSksZi5uYW1lKTthd2FpdCBuZXcgUHJvbWlzZShyPT5zZXRUaW1lb3V0KHIsNDAwKSl9fTtiLmFwcGVuZENoaWxkKGFsbCl9Yi5hcHBlbmRDaGlsZChib3gpfQpmdW5jdGlvbiBzaG93UGFjayhnLGIsbSxmaWxlcyl7Y29uc3QgaW1ncz1maWxlcy5maWx0ZXIoZj0+Zi5uYW1lLnN0YXJ0c1dpdGgoJ2ltYWdlcy8nKSk7Zy51cmxzPWcudXJsc3x8W107CiBiLmFwcGVuZENoaWxkKGVsKCdwJywnJyxtLnVuaXQrJ++9nCcrbS5lbnYrJ++9nHYnK20udmVyKyfvvZzmiZPljIXmlrwgJyttLnRpbWUpKTtpZihtLnBhdGgpYi5hcHBlbmRDaGlsZChlbCgncCcsJ211dCcsJ+W+jOWPsOS9jee9ru+8micrbS5wYXRoKSk7CiBpZihtLmNoYW5nZXMpe2NvbnN0IHM9ZWwoJ2RpdicsJ3N0ZXAnKTtzLmFwcGVuZENoaWxkKGVsKCdoMicsJycsJ+mAmeasoeaUueS6huS7gOm6vCcpKTtzLmFwcGVuZENoaWxkKGVsKCdwcmUnLCcnLG0uY2hhbmdlcykpO2IuYXBwZW5kQ2hpbGQocyl9CiBjb25zdCBzMT1lbCgnZGl2Jywnc3RlcCcpO3MxLmFwcGVuZENoaWxkKGVsKCdoMicsJycsJ+KRoCDkuIrlgrPlnJbniYcnKyhpbWdzLmxlbmd0aD8n77yIJytpbWdzLmxlbmd0aCsnIOW8te+8iSc6JycpKSk7CiBpZihpbWdzLmxlbmd0aCl7czEuYXBwZW5kQ2hpbGQoZWwoJ3AnLCdtdXQnLCfkuIrlgrPliLAgQ01TIOeahOOAjCcrKG0uYmFzZXx8J++8iOacquioreWumui3r+W+ke+8iScpKyfjgI3vvIzmqpTlkI3kuI3opoHmlLnjgIInKSk7Y29uc3QgYWxsPWVsKCdidXR0b24nLCdwJywn5YWo6YOo5LiL6LyJJyk7YWxsLm9uY2xpY2s9YXN5bmMoKT0+e2Zvcihjb25zdCBmIG9mIGltZ3Mpe2RsKG5ldyBCbG9iKFtmLmRhdGFdLHt0eXBlOm1pbWUoZi5uYW1lKX0pLGYubmFtZS5zbGljZSg3KSk7YXdhaXQgbmV3IFByb21pc2Uocj0+c2V0VGltZW91dChyLDQwMCkpfX07czEuYXBwZW5kQ2hpbGQoYWxsKTsKICBpbWdzLmZvckVhY2goZj0+e2NvbnN0IGl0PWVsKCdkaXYnLCdpdCcpO2l0LmFwcGVuZENoaWxkKGVsKCdzcGFuJywnJyxmLm5hbWUuc2xpY2UoNykrJ++8iCcrZnN6KGYuZGF0YS5sZW5ndGgpKyfvvIknKSk7Y29uc3QgZD1lbCgnYnV0dG9uJywnJywn5LiL6LyJJyk7ZC5vbmNsaWNrPSgpPT5kbChuZXcgQmxvYihbZi5kYXRhXSx7dHlwZTptaW1lKGYubmFtZSl9KSxmLm5hbWUuc2xpY2UoNykpO2l0LmFwcGVuZENoaWxkKGQpO3MxLmFwcGVuZENoaWxkKGl0KX0pfQogZWxzZSBzMS5hcHBlbmRDaGlsZChlbCgncCcsJ211dCcsJ+mAmeasoeaykuacieaWsOWclueJh+imgeS4iuWCs+OAgicpKTtiLmFwcGVuZENoaWxkKHMxKTsKIGNvbnN0IHMyPWVsKCdkaXYnLCdzdGVwJyk7czIuYXBwZW5kQ2hpbGQoZWwoJ2gyJywnJywn4pGhIOiyvOS4iuWOn+Wni+eivCcpKTtzMi5hcHBlbmRDaGlsZChlbCgncCcsJ211dCcsJ0NLRWRpdG9yIOWIh+WIsOOAjOWOn+Wni+eivOOAjeaooeW8j++8jOWFqOmBuOW+jOiyvOS4iuWPluS7o+OAgicpKTtjb25zdCB0YT1lbCgndGV4dGFyZWEnKTt0YS52YWx1ZT1tLmh0bWw7dGEucm93cz04O3RhLnJlYWRPbmx5PXRydWU7CiBjb25zdCByMj1lbCgnZGl2Jywncm93JyksY3A9ZWwoJ2J1dHRvbicsJ3AnLCfopIfoo73ljp/lp4vnorwnKTtjcC5vbmNsaWNrPWFzeW5jKCk9Pntjb25zdCBvaz1hd2FpdCBjb3B5KG0uaHRtbCk7aWYoIW9rKXt0YS5zZWxlY3QoKX1zYXkob2s/J+WOn+Wni+eivOW3suikh+ijvSc6J+iri+aJi+WLlSBDdHJsK0PvvIjlt7LluavkvaDpgbjlj5bvvIknLG9rPydvayc6J3dhcm4nKX07CiBjb25zdCBwdj1lbCgnYnV0dG9uJywnJywn6aCQ6Ka9Jyk7Y29uc3QgZnI9ZWwoJ2lmcmFtZScsJ2hpZCcpO3B2Lm9uY2xpY2s9KCk9PntpZihmci5jbGFzc0xpc3QudG9nZ2xlKCdoaWQnKSlyZXR1cm47bGV0IGg9bS5odG1sO2ltZ3MuZm9yRWFjaChmPT57Y29uc3QgdT1VUkwuY3JlYXRlT2JqZWN0VVJMKG5ldyBCbG9iKFtmLmRhdGFdLHt0eXBlOm1pbWUoZi5uYW1lKX0pKTtnLnVybHMucHVzaCh1KTtoPWguc3BsaXQoKG0uYmFzZXx8JycpK2YubmFtZS5zbGljZSg3KSkuam9pbih1KX0pO2ZyLnNyY2RvYz0nPG1ldGEgY2hhcnNldD0idXRmLTgiPjxzdHlsZT5ib2R5e2ZvbnQtZmFtaWx5OnNhbnMtc2VyaWY7cGFkZGluZzoxMnB4fWltZ3ttYXgtd2lkdGg6MTAwJX08L3N0eWxlPicraH07CiByMi5hcHBlbmQoY3AscHYpO3MyLmFwcGVuZChyMix0YSxmcik7Yi5hcHBlbmRDaGlsZChzMik7CiBjb25zdCBzMz1lbCgnZGl2Jywnc3RlcCcpO3MzLmFwcGVuZENoaWxkKGVsKCdoMicsJycsJ+KRoiDnr4Dpu57oqK3lrponKSk7aWYobS5jaGVja2xpc3QmJm0uY2hlY2tsaXN0Lmxlbmd0aCltLmNoZWNrbGlzdC5mb3JFYWNoKChjLGkpPT57Y29uc3QgbD1lbCgnbGFiZWwnLCdjaycpLHg9ZWwoJ2lucHV0Jyk7eC50eXBlPSdjaGVja2JveCc7bC5hcHBlbmQoeCxlbCgnc3BhbicsJycsYykpO3MzLmFwcGVuZENoaWxkKGwpfSk7ZWxzZSBzMy5hcHBlbmRDaGlsZChlbCgncCcsJ211dCcsJ+mAmeWAi+WWruWFg+aykuacieioreWumua4heWWruOAgicpKTsKIGlmKG0uYWRtaW4pczMuYXBwZW5kQ2hpbGQoZWwoJ3AnLCdtdXQnLCflvozlj7DntrLlnYDvvJonK20uYWRtaW4pKTtpZihtLmZyb250KXMzLmFwcGVuZENoaWxkKGVsKCdwJywnbXV0Jywn5LiK56i/5b6M5Yiw5YmN5Y+w56K66KqN77yaJyttLmZyb250KSk7Yi5hcHBlbmRDaGlsZChzMyl9CmRvY3VtZW50LmFkZEV2ZW50TGlzdGVuZXIoJ3Bhc3RlJyxlPT57ZS5wcmV2ZW50RGVmYXVsdCgpO29uUGFzdGUoKGUuY2xpcGJvYXJkRGF0YXx8d2luZG93LmNsaXBib2FyZERhdGEpLmdldERhdGEoJ3RleHQnKSk7JCgncGEnKS52YWx1ZT0nJ30pOwokKCdjbHInKS5vbmNsaWNrPSgpPT57Ry5mb3JFYWNoKGc9PntkYkRlbChnLmtleSk7KGcudXJsc3x8W10pLmZvckVhY2godT0+VVJMLnJldm9rZU9iamVjdFVSTCh1KSl9KTtHLmNsZWFyKCk7JCgnbGlzdCcpLmlubmVySFRNTD0nJzt0ZXN0cy5jbGVhcigpOyQoJ3Rlc3RzJykuY2xhc3NMaXN0LmFkZCgnaGlkJyk7c2F5KCflt7LmuIXnqbonLCdpbmZvJyl9OwpkYk9wZW4oKS50aGVuKGRiQWxsKS50aGVuKGFsbD0+e2FsbC5zb3J0KChhLGIpPT5hLnQtYi50KS5mb3JFYWNoKHM9Pntjb25zdCBnPU9iamVjdC5hc3NpZ24ocyx7Y2h1bmtzOm5ldyBNYXAocy5jaHVua3N8fFtdKX0pO0cuc2V0KGcua2V5LGcpO2RyYXcoZyl9KTtpZihhbGwubGVuZ3RoKXNheSgn5bey5o6l5Zue5LiK5qyh5pS25Yiw55qEICcrYWxsLmxlbmd0aCsnIOWAi+WMheijuScsJ2luZm8nKX0pOwo8L3NjcmlwdD48L2JvZHk+PC9odG1sPgo=';
+</script>
+<script>
+(function(){
+'use strict';
+/* ================= 共用工具 ================= */
+const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(s));
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const pad=n=>String(n).padStart(2,'0');
+const fmtTime=t=>{const d=new Date(t);return (d.getMonth()+1)+'/'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())};
+const fsz=n=>n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(2)+' MB';
+let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
+async function copyText(s,quiet){let ok=false;try{if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(s);ok=true}}catch(e){}
+  if(!ok){const ta=document.createElement('textarea');ta.value=s;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{ok=document.execCommand('copy')}catch(e){}ta.remove()}
+  if(!quiet)toast(ok?'已複製':'無法自動複製，請手動選取複製');return ok}
+function armed(btn,fn){btn.addEventListener('click',()=>{if(btn.classList.contains('armed')){btn.classList.remove('armed');btn.textContent=btn.dataset.o;fn();return}btn.dataset.o=btn.textContent;btn.classList.add('armed');btn.textContent='再按一次確認';setTimeout(()=>{if(btn.classList.contains('armed')){btn.classList.remove('armed');btn.textContent=btn.dataset.o}},3000)})}
+function download(name,blob){try{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}catch(e){}}
+function modal(title,html,setup){$('#mTitle').textContent=title;$('#mBody').innerHTML=html;$('#modal').hidden=false;if(setup)setup($('#mBody'))}
+$('#mClose').addEventListener('click',()=>$('#modal').hidden=true);
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')$('#modal').hidden=true});
+
+/* ================= 校驗與打包（沿用物流箱 V5 格式） ================= */
+const CRC=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;CRC[n]=c>>>0}
+const h8=n=>(n>>>0).toString(16).padStart(8,'0');
+function crcB(u){let c=-1;for(let i=0;i<u.length;i++)c=CRC[(c^u[i])&255]^(c>>>8);return (c^-1)>>>0}
+function crcS(s){let c=-1;for(let i=0;i<s.length;i++)c=CRC[(c^s.charCodeAt(i))&255]^(c>>>8);return h8(c^-1)}
+function shaJs(b){const K=[],H=[];{let n=2,k=0;const pr=x=>{for(let i=2;i*i<=x;i++)if(x%i===0)return false;return true},fr=x=>((x-Math.floor(x))*4294967296)>>>0;while(k<64){if(pr(n)){if(k<8)H[k]=fr(Math.pow(n,1/2));K[k]=fr(Math.cbrt(n));k++}n++}}
+ const L=b.length,P=Math.ceil((L+9)/64)*64,u=new Uint8Array(P);u.set(b);u[L]=128;const d=new DataView(u.buffer);d.setUint32(P-8,Math.floor(L/536870912));d.setUint32(P-4,(L<<3)>>>0);const W=new Uint32Array(64),r=(x,n)=>(x>>>n)|(x<<(32-n));
+ for(let o=0;o<P;o+=64){for(let i=0;i<16;i++)W[i]=d.getUint32(o+i*4);for(let i=16;i<64;i++)W[i]=(W[i-16]+(r(W[i-15],7)^r(W[i-15],18)^(W[i-15]>>>3))+W[i-7]+(r(W[i-2],17)^r(W[i-2],19)^(W[i-2]>>>10)))>>>0;
+  let[a,b2,c,e0,e,f,g,h]=H;for(let i=0;i<64;i++){const t1=(h+(r(e,6)^r(e,11)^r(e,25))+((e&f)^(~e&g))+K[i]+W[i])>>>0,t2=((r(a,2)^r(a,13)^r(a,22))+((a&b2)^(a&c)^(b2&c)))>>>0;h=g;g=f;f=e;e=(e0+t1)>>>0;e0=c;c=b2;b2=a;a=(t1+t2)>>>0}
+  [a,b2,c,e0,e,f,g,h].forEach((v,i)=>H[i]=(H[i]+v)>>>0)}return H.map(h8).join('')}
+async function sha(u){try{if(window.crypto&&crypto.subtle){const d=await crypto.subtle.digest('SHA-256',u);return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,'0')).join('')}}catch(e){}return shaJs(u)}
+function b64e(u){let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)}
+function b64d(s){const a=atob(s),u=new Uint8Array(a.length);for(let i=0;i<a.length;i++)u[i]=a.charCodeAt(i);return u}
+function cat(arr){const o=new Uint8Array(arr.reduce((s,a)=>s+a.length,0));let p=0;arr.forEach(a=>{o.set(a,p);p+=a.length});return o}
+const dataUrlBytes=d=>b64d(d.slice(d.indexOf(',')+1));
+function buildZip(entries){const enc=new TextEncoder(),now=new Date(),tm=(now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1),dt=((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate();const parts=[],central=[];let off=0;
+  entries.forEach(e=>{const nb=enc.encode(e.name),crc=crcB(e.data),sz=e.data.length;const lh=new Uint8Array(30+nb.length),v=new DataView(lh.buffer);
+    v.setUint32(0,0x04034b50,true);v.setUint16(4,20,true);v.setUint16(6,0x0800,true);v.setUint16(10,tm,true);v.setUint16(12,dt,true);v.setUint32(14,crc,true);v.setUint32(18,sz,true);v.setUint32(22,sz,true);v.setUint16(26,nb.length,true);lh.set(nb,30);parts.push(lh,e.data);
+    const ch=new Uint8Array(46+nb.length),cv=new DataView(ch.buffer);cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0x0800,true);cv.setUint16(12,tm,true);cv.setUint16(14,dt,true);cv.setUint32(16,crc,true);cv.setUint32(20,sz,true);cv.setUint32(24,sz,true);cv.setUint16(28,nb.length,true);cv.setUint32(42,off,true);ch.set(nb,46);central.push(ch);off+=lh.length+sz});
+  const cs=central.reduce((s,c)=>s+c.length,0),eo=new Uint8Array(22),ev=new DataView(eo.buffer);ev.setUint32(0,0x06054b50,true);ev.setUint16(8,entries.length,true);ev.setUint16(10,entries.length,true);ev.setUint32(12,cs,true);ev.setUint32(16,off,true);return cat([...parts,...central,eo])}
+async function deflate(u){if(typeof CompressionStream==='undefined')return null;try{return new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer())}catch(e){return null}}
+function makeChunks(payload,name,flags,chunkChars,shaHex){const per=chunkChars>0?(chunkChars/4)*3:Math.max(payload.length,1);const total=Math.max(1,Math.ceil(payload.length/per));const id=shaHex.slice(0,12),nb=btoa(encodeURIComponent(name));const out=[];
+  for(let i=0;i<total;i++){const b=b64e(payload.subarray(i*per,(i+1)*per));out.push('?OFX6:'+id+':'+nb+':'+(i+1)+':'+total+':'+flags+':'+shaHex+':'+crcS(b)+'?'+b)}return out}
+
+/* ================= 差異比對（中文逐字、英文逐詞） ================= */
+function tok(s){return s.match(/[㐀-鿿豈-﫿　-〿＀-￯]|[A-Za-z0-9_]+|\s+|[^\sA-Za-z0-9_㐀-鿿豈-﫿　-〿＀-￯]/g)||[]}
+function diffArr(A,B,eq){eq=eq||((x,y)=>x===y);let p=0;while(p<A.length&&p<B.length&&eq(A[p],B[p]))p++;let s=0;while(s<A.length-p&&s<B.length-p&&eq(A[A.length-1-s],B[B.length-1-s]))s++;
+  const a=A.slice(p,A.length-s),b=B.slice(p,B.length-s),n=a.length,m=b.length,ops=[];for(let i=0;i<p;i++)ops.push(['eq',A[i],B[i]]);
+  if(n*m>6e6){a.forEach(x=>ops.push(['del',x]));b.forEach(y=>ops.push(['ins',null,y]))}
+  else{const W=m+1,dp=new Int32Array((n+1)*W);for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)dp[i*W+j]=eq(a[i],b[j])?dp[(i+1)*W+j+1]+1:Math.max(dp[(i+1)*W+j],dp[i*W+j+1]);
+    let i=0,j=0;while(i<n&&j<m){if(eq(a[i],b[j])){ops.push(['eq',a[i],b[j]]);i++;j++}else if(dp[(i+1)*W+j]>=dp[i*W+j+1]){ops.push(['del',a[i]]);i++}else{ops.push(['ins',null,b[j]]);j++}}
+    while(i<n)ops.push(['del',a[i++]]);while(j<m)ops.push(['ins',null,b[j++]])}
+  for(let i=A.length-s;i<A.length;i++)ops.push(['eq',A[i],B[B.length-(A.length-i)]]);return ops}
+function diffText(a,b){const out=[];diffArr(tok(a),tok(b)).forEach(([t,x,y])=>{const v=t==='ins'?y:x;const l=out[out.length-1];if(l&&l.t===t)l.v+=v;else out.push({t,v})});return out}
+function diffHtml(a,b){const d=diffText(a,b);return d.map((x,i)=>{if(x.t==='ins')return '<ins>'+esc(x.v)+'</ins>';if(x.t==='del')return '<del>'+esc(x.v)+'</del>';const v=x.v;if(v.length>220){const hd=i===0?'':v.slice(0,90),tl=i===d.length-1?'':v.slice(-90);return esc(hd)+'<span class="gap">\n…（未變動 '+(v.length-hd.length-tl.length)+' 字）…\n</span>'+esc(tl)}return esc(v)}).join('')}
+function lineOps(a,b){const A=String(a).split('\n'),B=String(b).split('\n'),ops=diffArr(A,B),g=[];for(let i=0;i<ops.length;i++){if(ops[i][0]==='eq'){g.push({t:'eq',a:ops[i][1]});continue}const d=[],n=[];while(i<ops.length&&ops[i][0]!=='eq'){if(ops[i][0]==='del')d.push(ops[i][1]);else n.push(ops[i][2]);i++}i--;g.push({t:'chg',d,n})}return g}
+function diffLinesHtml(a,b){if(a===b)return '<span class="gap">相同</span>';const g=lineOps(a,b),out=[];const near=i=>[i-2,i-1,i+1,i+2].some(j=>g[j]&&g[j].t==='chg');let skip=0;
+  const flush=()=>{if(skip){out.push('<span class="gap">…（未變動 '+skip+' 行）…</span>');skip=0}};
+  g.forEach((x,i)=>{if(x.t==='eq'){if(near(i)){flush();out.push(esc(x.a))}else skip++;return}flush();const k=Math.min(x.d.length,x.n.length);
+    for(let j=0;j<k;j++)out.push(diffHtml(x.d[j],x.n[j]));x.d.slice(k).forEach(l=>out.push('<del>'+esc(l)+'</del>'));x.n.slice(k).forEach(l=>out.push('<ins>'+esc(l)+'</ins>'))});flush();return out.join('\n')}
+function clip(l,ctx){l=l.trim();if(l.length<=240)return l;return '…'+ctx+'…'}
+function changeLines(a,b,max){const out=[],cl=s=>s.replace(/\s+/g,' ').trim();lineOps(a,b).forEach(x=>{if(x.t==='eq')return;const k=Math.min(x.d.length,x.n.length);
+  for(let j=0;j<k;j++){const o=x.d[j],n=x.n[j];if(o.trim().length<=240&&n.trim().length<=240){out.push('原：'+cl(o));out.push('新：'+cl(n));out.push('')}else{const d=diffText(o,n);for(let i=0;i<d.length;i++){if(d[i].t==='eq')continue;let del='',ins='';const bf=(d[i-1]&&d[i-1].t==='eq')?d[i-1].v.slice(-30):'';while(i<d.length&&d[i].t!=='eq'){if(d[i].t==='del')del+=d[i].v;else ins+=d[i].v;i++}const af=(d[i]&&d[i].t==='eq')?d[i].v.slice(0,30):'';i--;out.push('原：…'+cl(bf+del+af)+'…');out.push('新：…'+cl(bf+ins+af)+'…');out.push('')}}}
+  x.d.slice(k).filter(l=>l.trim()).forEach(l=>{out.push('刪除：'+cl(l).slice(0,300));out.push('')});x.n.slice(k).filter(l=>l.trim()).forEach(l=>{out.push('新增：'+cl(l).slice(0,300));out.push('')})});
+  if(out.length>(max||60)*3){const r=out.slice(0,(max||60)*3);r.push('（還有更多變更未列出）');return r}while(out.length&&!out[out.length-1])out.pop();return out}
+
+/* ================= 儲存 ================= */
+const store={db:null,mem:{},
+  open(){return new Promise(res=>{try{const r=indexedDB.open('cms-desk',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>{this.db=r.result;res(true)};r.onerror=()=>res(false);r.onblocked=()=>res(false)}catch(e){res(false)}})},
+  get(k){return new Promise(res=>{if(!this.db)return res(this.mem[k]||null);try{const q=this.db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result!==undefined?q.result:(this.mem[k]||null));q.onerror=()=>res(this.mem[k]||null)}catch(e){res(this.mem[k]||null)}})},
+  set(k,v){this.mem[k]=v;return new Promise(res=>{if(!this.db)return res(false);try{const t=this.db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=()=>res(true);t.onerror=()=>res(false);t.onabort=()=>res(false)}catch(e){res(false)}})},
+  del(k){delete this.mem[k];return new Promise(res=>{if(!this.db)return res(false);try{const t=this.db.transaction('kv','readwrite');t.objectStore('kv').delete(k);t.oncomplete=()=>res(true);t.onerror=()=>res(false)}catch(e){res(false)}})}};
+let G=null,U=null,IDX=[];
+let saveT=null,gSaveT=null,dirty=false;
+const clone=o=>JSON.parse(JSON.stringify(o));
+function saveU(){dirty=true;clearTimeout(saveT);$('#saveState').textContent='儲存中…';saveT=setTimeout(saveNow,500)}
+async function saveNow(){clearTimeout(saveT);if(!U)return;dirty=false;U.updated=Date.now();const ok=await store.set('unit:'+U.id,clone(U));
+  const en={id:U.id,name:U.name,cms:U.cms,path:U.path,tags:U.tags,updated:U.updated,envs:U.envs.map(e=>({name:e.name,s:envState(e).s})),search:[U.name,U.cms,U.path,U.tags,U.html.replace(/<[^>]+>/g,' ').slice(0,20000)].join(' ').toLowerCase()};
+  const i=IDX.findIndex(x=>x.id===U.id);if(i>=0)IDX[i]=en;else IDX.unshift(en);await store.set('index',IDX);await store.set('current',U.id);
+  $('#saveState').textContent=ok?'已存在本機 '+fmtTime(Date.now()):'無法存在瀏覽器，請記得「備份全部單元」';$('#saveState').style.color=ok?'':'var(--bad)';renderUnitSel()}
+function saveG(){clearTimeout(gSaveT);gSaveT=setTimeout(()=>store.set('global',clone(G)),400)}
+
+/* ================= 預設值 ================= */
+const CONTRACT='\n\n【輸出格式，務必遵守】\n1. 先輸出一個 ```html 程式碼區塊，內容是修改後的「完整」原始碼，可以直接整段取代，不要只給片段。\n2. 再輸出一個 ```json 程式碼區塊：{"changes":[{"where":"位置","before":"原本","after":"改為","source":"依據（資料中的原文或儲存格位置）"}],"questions":["需要人確認的問題"]}\n3. 原始碼中的 {{BASE}} 是圖片路徑代號，原樣保留，不要改寫、不要補上網址。\n4. 沒有依據的內容不要寫進原始碼，列在 questions。\n5. 不要輸出其他說明文字。';
+const CTX='【單元】[[單元]]（[[系統]]，後台位置：[[節點位置]]）\n\n【必須遵守的規則】\n[[規則]]\n\n【目前的原始碼】\n```html\n[[原始碼]]\n```\n\n【可用的圖片】\n[[圖片清單]]';
+const DEFAULT_PROMPTS=[
+ {id:'p-update',name:'依新資料更新原始碼',kind:'html',attach:'把最新的 Excel、Word 或截圖附加到 AI 對話',desc:'最常用。附上電腦公會的新資料，AI 只改有變動的地方，工具再檢查它有沒有改壞、有沒有亂編。',
+  body:'你是政府機關網站的上稿編輯。我附上了最新資料，請依資料更新下面這個 CKEditor 原始碼。\n\n做法：\n1. 先找出資料和目前原始碼不一致的地方，只改這些地方；其他內容、HTML 結構、class、屬性一律不動。\n2. 人名、職稱、單位、日期、時間、數字，一律照資料原文，一字不改。\n3. Excel 裡的括號說明、※、備註、顏色標示、「待確認」「暫定」等，多半是給內部看的注記，不要放上網頁；如果看不出是不是注記，列在 questions。\n4. 資料裡有、原始碼沒有的新項目，比照原始碼既有的同類項目寫法加入。\n5. 資料標示取消、婉拒的項目，從原始碼移除，並寫在 changes。\n\n工具比對出這次資料和上一版的差異（供參考，以附件為準）：\n[[資料差異]]\n\n這次的補充要求：[[補充]]\n\n'+CTX+CONTRACT},
+ {id:'p-read',name:'看懂 Excel 與注記',kind:'text',attach:'附加 Excel（新舊兩版都附更好）',desc:'Excel 太亂時先用這個。AI 整理成看得懂的清單，挑出會影響網頁的注記，列出要問電腦公會的問題。',
+  body:'附件是合作廠商提供的活動資料 Excel，格式複雜、注記很多。請幫我整理，分成四段輸出：\n\n一、依場次（日期）整理的上稿用清單：用表格列出每一場的角色、順序、姓名、單位職稱、狀態。只列資料裡確實有的，空缺就寫「（空缺）」。\n二、會影響網頁內容的注記：寫出「場次／對象／注記原文／對上稿的影響」。\n三、只是內部提醒、不用上網頁的注記：簡短列出即可。\n四、需要詢問電腦公會或承辦人的問題：每題一句，可以直接複製發問，同一場次放在一起。\n\n規則：姓名、職稱照原文；不確定就寫不確定，不要推測。\n\n工具比對出的版本差異（如果有）：\n[[資料差異]]\n\n補充要求：[[補充]]'},
+ {id:'p-proof',name:'校對',kind:'html',attach:'',desc:'上稿給承辦人確認前用。找錯字、標點、日期與機關全銜寫法不一致。',
+  body:'你是政府機關網站的校對人員。請校對下面的原始碼，只修正確定有問題的地方：錯別字、漏字、全形與半形標點混用、日期與時間寫法不一致、機關全銜與職稱在全文寫法不一致。不要改寫語氣與文意，不要動 HTML 結構。每一處修改都寫在 changes。\n\n補充要求：[[補充]]\n\n'+CTX+CONTRACT},
+ {id:'p-a11y',name:'修正無障礙問題',kind:'html',attach:'附上照片的話，AI 可以順便寫替代文字',desc:'依無障礙規範修正：圖片替代文字、標題層級、連結文字、表格標題列、全形空白排版。',
+  body:'你熟悉臺灣「無障礙網頁開發規範」與 WCAG 2.1。請修正下面原始碼的無障礙問題，文字內容不要改寫：\n1. 每張圖片都要有適當的 alt（描述圖片傳達的資訊，15 到 50 字；不要用「圖片」「照片」開頭，不要寫檔名；純裝飾圖用空的 alt）。如果我有附上照片，依照片內容寫；沒有附上就依上下文寫，並在 questions 提醒我確認。\n2. 標題層級依序，不要跳級。\n3. 連結文字要看得出目的地，不要只寫「點此」「詳見」。\n4. 表格要有 caption，標題列用 th 並加 scope。\n5. 移除用全形空白、連續 &nbsp;、空段落做的排版。\n\n補充要求：[[補充]]\n\n'+CTX+CONTRACT},
+ {id:'p-add',name:'新增一段內容',kind:'html',attach:'附上要新增的資料',desc:'在原始碼裡加一個新區塊，例如新的一場論壇、新的公告段落，沿用既有版型。',
+  body:'請依附件資料，在下面的原始碼加入新內容。位置與要求：[[補充]]\n\n寫法必須比照原始碼裡既有的同類區塊（相同的標籤、class、結構、排序方式），文字照資料原文。既有內容不要動。\n\n'+CTX+CONTRACT},
+ {id:'p-notice',name:'給承辦人的確認訊息',kind:'text',attach:'',desc:'依「上稿到環境」選的環境，整理這次改了什麼，寫一則請承辦人確認的訊息。',
+  body:'請幫我寫一則訊息給機關承辦人，請對方確認網頁這一版的修改。\n要求：語氣禮貌簡潔，適合 Line 或 email；條列這次改了哪些地方，每點一行，用承辦人看得懂的說法，不要出現 HTML；只寫下面變更裡確實有的修改；結尾請對方確認，並請對方若有其他修改一次告知。\n\n單元：[[單元]]\n今天：[[今天]]\n\n這次的變更（原始碼層級，【刪：】是刪掉的、【增：】是新增的）：\n[[版本差異]]\n\n補充要求：[[補充]]'},
+ {id:'p-check',name:'產生節點設定清單',kind:'text',target:'checklist',attach:'附上 CMS 後台這個節點的設定畫面截圖',desc:'截圖後台設定畫面給 AI，產生上稿時要確認的設定項目，存到這個單元，之後放進每個上稿包。',
+  body:'附件是 CMS 後台一個節點的設定畫面截圖。請列出上稿時需要確認的設定項目，一行一項，格式為「項目：應該設定的值」，例如「前台顯示：是」。看不出應該設定什麼值的，寫「項目：（請確認）」。只輸出一個 text 程式碼區塊，裡面一行一項，不要其他說明。\n\n這個節點是：[[單元]]（[[節點位置]]）\n補充：[[補充]]'},
+ {id:'p-free',name:'自由提問',kind:'text',attach:'',desc:'把這個單元的原始碼和規則帶給 AI，問什麼都可以。如果 AI 回了修改後的原始碼，一樣可以貼回來檢查。',
+  body:'以下是一個政府機關網站頁面的資料，請根據它回答我的問題。\n\n我的問題：[[補充]]\n\n'+CTX+'\n\n如果你的回答包含修改後的原始碼，請放在一個 ```html 程式碼區塊，給完整原始碼，{{BASE}} 原樣保留。'}
+];
+const EXTRA_CHIPS=['只改資料有變動的地方','不確定的都列在 questions，不要猜','用更正式的公文語氣','這次有新增場次'];
+const PH=['單元','系統','節點位置','規則','原始碼','圖片清單','資料','資料差異','版本差異','設定清單','補充','今天'];
+function defaultGlobal(){return{rules:['人名、職稱、單位、日期、數字一律照資料原文，不可改寫或推測','不要新增 style、font、span 等格式標籤（原始碼本來就有的保留）','不要用全形空白或空段落排版'],prompts:clone(DEFAULT_PROMPTS),seen:DEFAULT_PROMPTS.map(p=>p.id),chunk:1000000,zip:true,fmt:'image/jpeg',maxEdge:1920,q:82}}
+const DEF_ENVS=()=>[{id:'company',name:'公司機'},{id:'test',name:'測試機'},{id:'prod',name:'正式機'}];
+function blankUnit(from){const envs=(from?from.envs:DEF_ENVS()).map(e=>({id:e.id,name:e.name,base:from?e.base:'',admin:'',front:'',sent:null,packed:null}));
+  return{id:uid(),name:'未命名單元',cms:from?from.cms:'',path:'',tags:'',html:'',versions:[],images:[],rules:from?from.rules.slice():[],checklist:from?from.checklist.slice():[],srcs:[],envs,updated:Date.now()}}
+function normU(u){const b=blankUnit();Object.keys(b).forEach(k=>{if(u[k]===undefined)u[k]=b[k]});u.envs.forEach(e=>{['base','admin','front'].forEach(k=>{if(e[k]===undefined)e[k]=''});if(e.sent===undefined)e.sent=null;if(e.packed===undefined)e.packed=null});return u}
+
+/* ================= 單元狀態 ================= */
+const refFiles=h=>{const s=new Set();String(h||'').replace(/\{\{BASE\}\}([^"'\s)<>]+)/g,(m,f)=>{try{s.add(decodeURIComponent(f))}catch(e){s.add(f)}});return [...s]};
+const verById=id=>U.versions.find(v=>v.id===id);
+const latestV=()=>U.versions[U.versions.length-1];
+function imgSigMap(files){const o={};files.forEach(f=>{const im=U.images.find(i=>i.file===f);if(im)o[f]=im.sig});return o}
+function neededImgs(e,all){return refFiles(U.html).map(f=>U.images.find(i=>i.file===f)).filter(Boolean).filter(i=>all||!(e.sent&&e.sent.imgs&&e.sent.imgs[i.file]===i.sig))}
+function envState(e){if(!U.html.trim())return{s:'empty'};if(!e.sent)return{s:'none',imgs:neededImgs(e)};const v=verById(e.sent.verId);const htmlChanged=!v||v.html!==U.html;const imgs=neededImgs(e);return{s:htmlChanged||imgs.length?'need':'ok',v,htmlChanged,imgs}}
+const renderFor=(h,e)=>String(h).replace(/\{\{BASE\}\}/g,e.base||'');
+function previewHtml(h){let out=String(h).replace(/\{\{BASE\}\}([^"'\s)<>]+)/g,(m,f)=>{let k=f;try{k=decodeURIComponent(f)}catch(e){}const im=U.images.find(i=>i.file===k);return im?im.data:((U.envs.find(e=>e.base)||{}).base||'')+f});
+  return '<!doctype html><meta charset="utf-8"><style>body{font-family:"Microsoft JhengHei",sans-serif;padding:16px;line-height:1.7;color:#222;background:#fff}img{max-width:100%}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:4px 8px}</style>'+out}
+function textOf(h){const s=String(h||'').replace(/<!--[\s\S]*?-->/g,'').replace(/<(br|\/p|\/li|\/h\d|\/td|\/th|\/tr|\/div|\/caption)\b[^>]*>/gi,'\n').replace(/<[^>]+>/g,' ');const t=document.createElement('textarea');t.innerHTML=s;return t.value.replace(/[ \t ]+/g,' ').replace(/\s*\n\s*/g,'\n').trim()}
+const norm=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[\s \p{P}\p{S}]/gu,'');
+
+/* ================= 自動檢查 ================= */
+function checkHtml(oldH,newH,src){const out=[],add=(l,m)=>out.push([l,m]);
+  if(!newH.trim()){add('e','原始碼是空的');return out}
+  if(/```|^\s*(以下是|好的|這是|这是|Here is)/.test(newH))add('e','原始碼裡混進了 AI 的說明文字或 ``` 符號');
+  if(/<\/?(html|head|body)\b/i.test(newH))add('w','含有 <html>／<body>，CKEditor 只需要內容片段');
+  const voids=new Set('area base br col embed hr img input link meta source track wbr'.split(' '));const st=[],lost=[];let extra=0;
+  newH.replace(/<!--[\s\S]*?-->/g,'').replace(/<(\/?)([a-zA-Z][\w:-]*)\b[^>]*?(\/?)>/g,(m,cl,t,sc)=>{t=t.toLowerCase();if(voids.has(t)||sc)return m;if(!cl)st.push(t);else{const i=st.lastIndexOf(t);if(i<0)extra++;else{st.slice(i+1).forEach(x=>lost.push(x));st.length=i}}return m});
+  const unc=[...lost,...st];if(unc.length||extra)add('e','標籤沒有成對：'+(unc.length?'未關閉 '+unc.slice(-3).map(t=>'<'+t+'>').join(' '):'')+(extra?' 多出 '+extra+' 個關閉標籤':''));
+  const wordRe=/\sstyle\s*=|class\s*=\s*["']?Mso|<\/?(font|o:p)\b|<span\b/i;if(wordRe.test(newH)&&!wordRe.test(oldH))add('w','出現 style、span、font 或 Word 殘留格式（原本沒有）');
+  if(/　{2,}|(&nbsp;\s*){3,}/.test(newH))add('w','用全形空白或連續 &nbsp; 排版，無障礙檢測常會挑出來');
+  if(/<p>\s*(&nbsp;)?\s*<\/p>/i.test(newH))add('w','有空段落 <p></p>');
+  (newH.match(/<img\b[^>]*>/gi)||[]).forEach(t=>{const a=t.match(/\balt\s*=\s*("([^"]*)"|'([^']*)')/i),f=((t.match(/src\s*=\s*["']([^"']+)/i)||[])[1]||'').split('/').pop().replace('{{BASE}}','');
+    if(!a)add('e','圖片 '+f+' 沒有 alt');else{const v=(a[2]!==undefined?a[2]:(a[3]||'')).trim();if(!v)add('w','圖片 '+f+' 的 alt 是空的（純裝飾圖才可以）');else if(/\.(jpe?g|png|gif|webp)$/i.test(v)||/^(img|image|圖片|照片|photo|dsc)[_\-\s]?\d*$/i.test(v))add('w','圖片 '+f+' 的 alt「'+v+'」像檔名')}});
+  let last=0;(newH.match(/<h([1-6])\b/gi)||[]).forEach(x=>{const n=+x[2];if(last&&n>last+1)add('w','標題從 h'+last+' 跳到 h'+n);last=n});
+  (newH.match(/<a\b[^>]*>[\s\S]*?<\/a>/gi)||[]).forEach(a=>{const t=a.replace(/<[^>]+>/g,'').trim();if(!t&&!/<img[^>]+alt\s*=\s*["'][^"']+/i.test(a))add('e','有沒有文字的連結');else if(/^(點此|點這裡|按此|這裡|詳見|更多|more|click here)$/i.test(t))add('w','連結文字「'+t+'」看不出目的地')});
+  (newH.match(/<table\b[\s\S]*?<\/table>/gi)||[]).forEach((tb,i)=>{if(!/<th\b/i.test(tb))add('w','第 '+(i+1)+' 個表格沒有標題列 <th>');if(!/<caption\b/i.test(tb))add('w','第 '+(i+1)+' 個表格沒有 <caption>')});
+  if(/\{\{BASE\}\}/.test(oldH)&&!/\{\{BASE\}\}/.test(newH)&&/<img/i.test(newH))add('e','圖片路徑代號 {{BASE}} 不見了，AI 可能改寫了圖片路徑');
+  const oldF=refFiles(oldH);refFiles(newH).forEach(f=>{if(!oldF.includes(f)&&!U.images.some(i=>i.file===f))add('w','用到新圖片 '+f+'，但「圖片」裡還沒有這張')});
+  oldF.filter(f=>!refFiles(newH).includes(f)).forEach(f=>add('w','圖片 '+f+' 被拿掉了，確認是不是要刪'));
+  const ot=textOf(oldH),nt=textOf(newH);if(ot.length>200&&nt.length<ot.length*0.7)add('w','文字比原本少了 '+Math.round((1-nt.length/ot.length)*100)+'%，確認 AI 沒有漏掉內容');
+  if(src&&src.trim()){const S=norm(src)+'|'+norm(ot);const miss=[];diffText(ot,nt).filter(x=>x.t==='ins').forEach(x=>{x.v.split(/[\s，。；、,;:：|｜／\/()（）「」【】]+/).map(s=>s.trim()).filter(s=>norm(s).length>=2).forEach(s=>{if(!S.includes(norm(s))&&!miss.includes(s))miss.push(s)})});
+    if(miss.length)add('w','這些新寫進去的文字，在原始資料裡找不到：'+miss.slice(0,12).map(s=>'「'+s.slice(0,40)+'」').join('、')+(miss.length>12?' 等 '+miss.length+' 處':'')+'。可能是 AI 改寫或編造，也可能是資料用了不同寫法');
+    else add('o','新寫進去的文字，都在原始資料裡找得到')}
+  else add('i','沒有原始資料可以核對 AI 新寫的文字（在「資料比對」加入資料，或在上面補貼）');
+  return out}
+function checksHtml(list){const icon={e:'✗',w:'!',o:'✓',i:'·'};const n={e:0,w:0};list.forEach(c=>{if(n[c[0]]!==undefined)n[c[0]]++});
+  const body=list.length?list.map(c=>'<li class="'+c[0]+'"><span>'+icon[c[0]]+'</span><span>'+esc(c[1])+'</span></li>').join(''):'<li class="o"><span>✓</span><span>沒有發現問題</span></li>';return{body,n}}
+
+/* ================= 分頁 ================= */
+let curTab='ai',curEnv='test';
+function showTab(t){curTab=t;$$('nav.steps button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));['unit','data','ai','code','img','ship'].forEach(n=>$('#tab-'+n).hidden=n!==t);
+  ({unit:renderUnit,data:renderData,ai:renderAI,code:renderCode,img:renderImgs,ship:renderShip})[t]()}
+$$('nav.steps button').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+function refreshBadge(){const n=U.envs.filter(e=>envState(e).s==='need').length;const b=$('#shipBadge');b.hidden=!n;b.textContent=n}
+
+/* ================= 0 單元 ================= */
+function renderUnitSel(){const s=$('#unitSel');s.innerHTML=IDX.map(x=>`<option value="${esc(x.id)}">${esc(x.name||'未命名')}</option>`).join('');s.value=U?U.id:'';refreshBadge()}
+$('#unitSel').addEventListener('change',e=>openUnit(e.target.value));
+async function openUnit(id){if(dirty)await saveNow();const u=await store.get('unit:'+id);if(!u){toast('找不到這個單元');return}U=normU(u);aiState=null;packed=null;await store.set('current',id);renderUnitSel();showTab(curTab)}
+async function newUnit(u,msg){if(dirty)await saveNow();U=normU(u);packed=null;await saveNow();aiState=null;if(msg)toast(msg);showTab('unit')}
+function renderUnit(){const q=$('#uSearch').value.trim().toLowerCase().split(/\s+/).filter(Boolean);const list=IDX.filter(x=>q.every(t=>x.search.includes(t)));
+  const lab={none:['未上稿','mute'],need:['需更新','warn'],ok:['最新','ok'],empty:['沒有內容','mute']};
+  $('#uList').innerHTML=list.map(x=>`<div class="li"><div class="t"><b>${esc(x.name||'未命名')}</b><span class="s">${esc([x.cms,x.path].filter(Boolean).join('｜'))}　更新 ${fmtTime(x.updated)}</span><div class="row">${(x.envs||[]).map(e=>'<span class="chip '+(lab[e.s]||lab.none)[1]+'">'+esc(e.name)+' '+(lab[e.s]||lab.none)[0]+'</span>').join('')}</div></div>${x.id===U.id?'<span class="chip ok">目前</span>':`<button data-open="${esc(x.id)}">開啟</button>`}</div>`).join('')||'<p class="hint">沒有符合的單元。</p>';
+  $$('[data-open]').forEach(b=>b.addEventListener('click',()=>openUnit(b.dataset.open)));
+  $('#uName').value=U.name;$('#uCms').value=U.cms;$('#uTags').value=U.tags;$('#uPath').value=U.path;$('#uRules').value=U.rules.join('\n');$('#uCheck').value=U.checklist.join('\n');$('#gRules').value=G.rules.join('\n');
+  $('#uEnvs').innerHTML=U.envs.map((e,i)=>`<div class="li" style="align-items:stretch"><div class="field" style="flex:1"><div class="row"><input type="text" data-ef="name" data-i="${i}" value="${esc(e.name)}" aria-label="環境名稱" style="width:120px;font-weight:700"><input type="text" data-ef="base" data-i="${i}" value="${esc(e.base)}" placeholder="圖片路徑前綴，例如 /upload/cop31/" aria-label="${esc(e.name)} 圖片路徑前綴" class="mono" style="flex:1;min-width:180px"></div>
+    <div class="row"><input type="text" data-ef="admin" data-i="${i}" value="${esc(e.admin)}" placeholder="後台編輯網址（可留空）" aria-label="${esc(e.name)} 後台網址" style="flex:1;min-width:180px"><input type="text" data-ef="front" data-i="${i}" value="${esc(e.front)}" placeholder="前台網址（可留空）" aria-label="${esc(e.name)} 前台網址" style="flex:1;min-width:180px"></div></div></div>`).join('');
+  $$('[data-ef]').forEach(el=>el.addEventListener('input',()=>{U.envs[+el.dataset.i][el.dataset.ef]=el.value;saveU()}))}
+$('#uSearch').addEventListener('input',renderUnit);
+[['#uName','name'],['#uCms','cms'],['#uTags','tags'],['#uPath','path']].forEach(([s,k])=>$(s).addEventListener('input',e=>{U[k]=e.target.value;saveU()}));
+$('#uRules').addEventListener('input',e=>{U.rules=e.target.value.split('\n').map(s=>s.trim()).filter(Boolean);saveU()});
+$('#uCheck').addEventListener('input',e=>{U.checklist=e.target.value.split('\n').map(s=>s.trim()).filter(Boolean);saveU()});
+$('#gRules').addEventListener('input',e=>{G.rules=e.target.value.split('\n').map(s=>s.trim()).filter(Boolean);saveG()});
+$('#uNew').addEventListener('click',()=>newUnit(blankUnit(U),'已新增單元，環境路徑與規則沿用目前單元'));
+$('#uDup').addEventListener('click',()=>{const c=clone(U);c.id=uid();c.name=U.name+'（複本）';c.versions=[];c.srcs=[];c.envs.forEach(e=>{e.sent=null;e.packed=null;e.admin='';e.front=''});newUnit(c,'已複製：原始碼、圖片、規則都帶過去，版本與上稿紀錄清空')});
+armed($('#uDel'),async()=>{const id=U.id;IDX=IDX.filter(x=>x.id!==id);await store.del('unit:'+id);await store.set('index',IDX);if(IDX.length)await openUnit(IDX[0].id);else await newUnit(blankUnit(),'已刪除，並建立一個新的空白單元');toast('已刪除')});
+$('#bkExport').addEventListener('click',async()=>{if(dirty)await saveNow();const units=[];for(const x of IDX){const u=await store.get('unit:'+x.id);if(u)units.push(u)}const txt=JSON.stringify({type:'cms-desk-backup',v:1,time:Date.now(),global:G,units});
+  modal('備份全部單元','<p class="hint">共 '+units.length+' 個單元，約 '+fsz(txt.length)+'。下載成檔案保存，換電腦時用「還原備份」。</p><div class="row"><button class="primary" id="bkDl">下載備份檔</button><button id="bkCp">複製文字</button></div>',b=>{b.querySelector('#bkDl').onclick=()=>download('上稿工作台備份_'+new Date().toISOString().slice(0,10)+'.json',new Blob([txt],{type:'application/json'}));b.querySelector('#bkCp').onclick=()=>copyText(txt)})});
+$('#bkImport').addEventListener('click',()=>{modal('還原備份','<p class="hint">選擇備份檔，或貼上備份文字。還原的單元會加進清單，不會覆蓋現有單元。</p><input type="file" id="bkF" accept=".json"><textarea id="bkT" class="mono" rows="5"></textarea><div class="row"><button class="primary" id="bkGo">還原</button></div>',b=>{
+  const go=async txt=>{try{const o=JSON.parse(txt);const us=o.type==='cms-desk-backup'?o.units:[o];let n=0,last=null;for(const u of us){if(!u||typeof u.html!=='string')continue;const c=normU(u);if(IDX.some(x=>x.id===c.id))c.id=uid();if(dirty)await saveNow();U=c;await saveNow();last=c.id;n++}if(!n)throw 0;$('#modal').hidden=true;await openUnit(last);toast('已還原 '+n+' 個單元')}catch(e){toast('格式不對，請選擇工作台的備份檔')}};
+  b.querySelector('#bkGo').onclick=()=>go(b.querySelector('#bkT').value);b.querySelector('#bkF').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>go(r.result);r.readAsText(f)}})});
+
+/* ================= 1 資料比對 ================= */
+const colL=i=>{let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s};
+function trimRows(rows){rows=rows.map(r=>{r=r.map(c=>String(c==null?'':c).replace(/\r/g,'').trim());while(r.length&&!r[r.length-1])r.pop();return r});while(rows.length&&!rows[rows.length-1].length)rows.pop();return rows}
+function parseTSV(t){const rows=[];let row=[],cell='',q=false;t=t||'';for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){cell+='"';i++}else q=false}else cell+=c}else if(c==='"'&&cell===''){q=true}else if(c==='\t'){row.push(cell);cell=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(cell);rows.push(row);row=[];cell=''}else cell+=c}if(cell!==''||row.length){row.push(cell);rows.push(row)}return trimRows(rows)}
+function readBook(file){return new Promise((res,rej)=>{const fr=new FileReader();const isText=/\.(csv|txt|tsv)$/i.test(file.name);
+  fr.onload=()=>{try{if(isText){const t=String(fr.result);const rows=/\.csv$/i.test(file.name)&&!t.includes('\t')&&typeof XLSX!=='undefined'?null:parseTSV(t);if(rows){res({[file.name]:rows});return}}
+    if(typeof XLSX==='undefined'){rej(new Error('讀 Excel 的元件沒有載入（可能是離線開啟）。請改用「直接貼上 Excel 複製的內容」'));return}
+    const wb=XLSX.read(isText?fr.result:new Uint8Array(fr.result),{type:isText?'string':'array'});const out={};
+    wb.SheetNames.forEach(n=>{const ws=wb.Sheets[n];if(!ws||!ws['!ref']){out[n]=[];return}const R=XLSX.utils.decode_range(ws['!ref']);const rows=[];
+      for(let r=R.s.r;r<=Math.min(R.e.r,R.s.r+3000);r++){const row=[];for(let c=R.s.c;c<=Math.min(R.e.c,R.s.c+80);c++){const cell=ws[XLSX.utils.encode_cell({r,c})];let v=cell?(cell.w!==undefined?cell.w:String(cell.v==null?'':cell.v)):'';if(cell&&cell.c&&cell.c.length)v+=(v?' ':'')+'〔註解：'+cell.c.map(x=>String(x.t||'').replace(/\s+/g,' ').trim()).join('／')+'〕';row.push(v)}rows.push(row)}
+      out[n]=trimRows(rows)});res(out)}catch(e){rej(e)}};fr.onerror=()=>rej(new Error('讀檔失敗'));if(isText)fr.readAsText(file);else fr.readAsArrayBuffer(file)})}
+function bookText(sheets){return Object.keys(sheets).map(n=>'### 工作表：'+n+'\n'+sheets[n].map(r=>r.join('\t')).join('\n')).join('\n\n')}
+function hdrRow(rows){for(let i=0;i<Math.min(rows.length,15);i++)if(rows[i].filter(Boolean).length>=3)return i;return -1}
+function rowLabel(r){return r.filter(Boolean).slice(0,3).map(s=>s.slice(0,16)).join('｜')}
+function diffBook(A,B){const res=[];const names=[...Object.keys(B),...Object.keys(A).filter(n=>!(n in B))];
+  names.forEach(n=>{const a=A[n],b=B[n];if(!a){res.push({sheet:n,items:[{k:'add',lab:'新增工作表',cells:[]}]});return}if(!b){res.push({sheet:n,items:[{k:'del',lab:'刪除工作表',cells:[]}]});return}
+    const hb=hdrRow(b),ha=hdrRow(a),head=c=>(hb>=0&&b[hb][c])||(ha>=0&&a[ha][c])||'';const items=[];
+    const ops=diffArr(a.map((r,i)=>({r,i,s:r.join('\t')})),b.map((r,i)=>({r,i,s:r.join('\t')})),(x,y)=>x.s===y.s);
+    for(let i=0;i<ops.length;i++){if(ops[i][0]==='eq')continue;const dels=[],inss=[];while(i<ops.length&&ops[i][0]!=='eq'){if(ops[i][0]==='del')dels.push(ops[i][1]);else inss.push(ops[i][2]);i++}i--;
+      const k=Math.min(dels.length,inss.length);for(let j=0;j<k;j++){const x=dels[j],y=inss[j],cells=[];const L=Math.max(x.r.length,y.r.length);for(let c=0;c<L;c++){const f=x.r[c]||'',t=y.r[c]||'';if(f!==t)cells.push({col:colL(c),head:head(c),from:f,to:t})}
+        items.push({k:'mod',lab:'第 '+(y.i+1)+' 列（'+rowLabel(y.r)+'）',cells})}
+      dels.slice(k).forEach(x=>items.push({k:'del',lab:'刪除第 '+(x.i+1)+' 列（'+rowLabel(x.r)+'）',cells:[]}));inss.slice(k).forEach(y=>items.push({k:'add',lab:'新增第 '+(y.i+1)+' 列（'+rowLabel(y.r)+'）',cells:y.r.map((v,c)=>v?{col:colL(c),head:head(c),from:'',to:v}:null).filter(Boolean)}))}
+    if(items.length)res.push({sheet:n,items})});return res}
+function diffBookText(d){if(!d)return '（沒有可比對的上一版資料）';if(!d.length)return '（兩版資料內容相同）';const k={add:'新增',del:'刪除',mod:'修改'};
+  return d.map(s=>'## 工作表：'+s.sheet+'\n'+s.items.map(it=>'- ['+k[it.k]+'] '+it.lab+(it.cells.length?'\n'+it.cells.map(c=>'    '+c.col+' 欄'+(c.head?'（'+c.head+'）':'')+'：'+(it.k==='mod'?'「'+(c.from||'空白')+'」→「'+(c.to||'空白')+'」':'「'+c.to+'」')).join('\n'):'')).join('\n')).join('\n\n')}
+let dPair=null;
+function snapById(id){return U.srcs.find(s=>s.id===id)}
+function curDataDiff(){const a=snapById($('#dA').value),b=snapById($('#dB').value);if(!a||!b||a===b)return null;return diffBook(a.sheets,b.sheets)}
+function latestDiffText(){if(U.srcs.length<2)return '（這個單元還沒有兩版資料可以比對）';const n=U.srcs.length;return diffBookText(diffBook(U.srcs[n-2].sheets,U.srcs[n-1].sheets))}
+function renderData(){$('#xlsxState').textContent=typeof XLSX==='undefined'?'讀 Excel 的元件沒有載入（離線開啟時會這樣），請用下方「直接貼上」':'可讀 .xlsx .xls .csv';
+  const opts=U.srcs.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}（${fmtTime(s.time)}）</option>`).join('');
+  const a=$('#dA').value,b=$('#dB').value;$('#dA').innerHTML=opts;$('#dB').innerHTML=opts;const n=U.srcs.length;
+  if(dPair){$('#dA').value=dPair[0];$('#dB').value=dPair[1];dPair=null}else{$('#dA').value=snapById(a)?a:(n>1?U.srcs[n-2].id:'');$('#dB').value=snapById(b)?b:(n?U.srcs[n-1].id:'')}
+  $('#dSnaps').innerHTML=U.srcs.slice().reverse().map(s=>{const rows=Object.values(s.sheets).reduce((t,r)=>t+r.length,0);return `<div class="li"><div class="t"><b>${esc(s.name)}</b><span class="s">${fmtTime(s.time)}｜${Object.keys(s.sheets).length} 個工作表、${rows} 列</span></div><div class="row"><button class="mini" data-sview="${esc(s.id)}">看內容</button><button class="mini danger" data-sdel="${esc(s.id)}">刪除</button></div></div>`}).join('')||'<p class="hint">還沒有資料。</p>';
+  $$('[data-sview]').forEach(b=>b.addEventListener('click',()=>{const s=snapById(b.dataset.sview);modal(s.name,Object.keys(s.sheets).map(n=>'<h3>'+esc(n)+'</h3><div class="tw"><table><tbody>'+s.sheets[n].slice(0,300).map((r,i)=>'<tr><th>'+(i+1)+'</th>'+r.map(c=>'<td>'+esc(c)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>').join(''))}));
+  $$('[data-sdel]').forEach(b=>armed(b,()=>{U.srcs=U.srcs.filter(s=>s.id!==b.dataset.sdel);saveU();renderData()}));
+  const d=curDataDiff(),box=$('#dOut');
+  if(!d){$('#dSum').innerHTML='';box.innerHTML='<p class="hint">'+(n<2?'加入兩版資料後，這裡會列出差異。':'請選兩個不同的版本。')+'</p>';return}
+  const cnt={add:0,del:0,mod:0};d.forEach(s=>s.items.forEach(i=>cnt[i.k]++));
+  $('#dSum').innerHTML=d.length?'<span class="chip warn">修改 '+cnt.mod+'</span><span class="chip ok">新增 '+cnt.add+'</span><span class="chip bad">刪除 '+cnt.del+'</span>':'<span class="chip ok">兩版內容相同</span>';
+  const kl={add:['新增','ok'],del:['刪除','bad'],mod:['修改','warn']};
+  box.innerHTML=d.map(s=>'<div class="dg"><h3>工作表：'+esc(s.sheet)+'</h3>'+s.items.map(it=>'<div class="field"><div class="h row"><span class="chip '+kl[it.k][1]+'">'+kl[it.k][0]+'</span><span>'+esc(it.lab)+'</span></div>'+it.cells.map(c=>'<div class="cellchg">'+esc(c.col)+' 欄'+(c.head?'（'+esc(c.head)+'）':'')+'：'+(it.k==='mod'?'<span class="diff" style="display:inline;padding:1px 4px">'+diffHtml(c.from,c.to)+'</span>':esc(c.to))+'</div>').join('')+'</div>').join('')+'</div>').join('')}
+['#dA','#dB'].forEach(s=>$(s).addEventListener('change',renderData));
+async function addSnap(name,sheets,time){U.srcs.push({id:uid(),name,time:time||Date.now(),sheets});if(U.srcs.length>10)U.srcs.shift();saveU()}
+async function addFiles(files){files=[...files].sort((a,b)=>a.lastModified-b.lastModified);let n=0;for(const f of files){try{const sh=await readBook(f);await addSnap(f.name.replace(/\.[^.]+$/,''),sh,f.lastModified);n++}catch(e){toast(e.message||'讀不到這個檔案');}}
+  if(n){const L=U.srcs.length;if(L>1)dPair=[U.srcs[L-2].id,U.srcs[L-1].id];renderData();toast('已加入 '+n+' 份資料'+(L>1?'，已和上一版比對':''))}}
+const dDrop=$('#dDrop');['dragenter','dragover'].forEach(t=>dDrop.addEventListener(t,e=>{e.preventDefault();dDrop.classList.add('over')}));['dragleave','drop'].forEach(t=>dDrop.addEventListener(t,e=>{e.preventDefault();dDrop.classList.remove('over')}));
+dDrop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));$('#dPick').addEventListener('click',()=>$('#dFile').click());$('#dFile').addEventListener('change',e=>{addFiles(e.target.files);e.target.value=''});
+$('#dPasteAdd').addEventListener('click',()=>{const t=$('#dPaste').value;if(!t.trim()){toast('先貼上內容');return}addSnap($('#dPasteName').value.trim()||'貼上的資料 '+fmtTime(Date.now()),{'貼上':parseTSV(t)});$('#dPaste').value='';$('#dPasteName').value='';const L=U.srcs.length;if(L>1)dPair=[U.srcs[L-2].id,U.srcs[L-1].id];renderData();toast('已加入')});
+$('#dCopy').addEventListener('click',()=>copyText(diffBookText(curDataDiff())));
+$('#dToAi').addEventListener('click',()=>{curPrompt='p-update';showTab('ai');toast('已選「依新資料更新原始碼」，記得在 AI 對話附上新版 Excel')});
+
+/* ================= 2 AI 改稿 ================= */
+let curPrompt='p-update',aiState=null;
+const curP=()=>G.prompts.find(p=>p.id===curPrompt)||G.prompts[0];
+function ctxValue(n){const e=U.envs.find(x=>x.id===curEnv)||U.envs[0];switch(n){
+  case '單元':return U.name;case '系統':return U.cms||'（未填）';case '節點位置':return U.path||'（未填）';
+  case '規則':{const r=[...G.rules,...U.rules];return r.length?r.map((x,i)=>(i+1)+'. '+x).join('\n'):'（無）'}
+  case '原始碼':return U.html||'（目前沒有原始碼）';
+  case '圖片清單':{const fs=new Set([...refFiles(U.html),...U.images.map(i=>i.file)]);return fs.size?[...fs].map(f=>{const im=U.images.find(i=>i.file===f);return '- {{BASE}}'+f+(im?'（'+im.w+'×'+im.h+'）':'（已在 CMS 上）')}).join('\n'):'（無）'}
+  case '資料':{const s=U.srcs[U.srcs.length-1];return s?bookText(s.sheets):'（沒有資料）'}
+  case '資料差異':return latestDiffText();
+  case '版本差異':{const st=envState(e);if(!e.sent)return '（'+e.name+' 還沒有上稿紀錄）';if(!st.htmlChanged)return '（'+e.name+' 上的版本和目前相同）';return changeLines(st.v?st.v.html:'',U.html).join('\n')}
+  case '設定清單':return U.checklist.join('\n')||'（無）';
+  case '補充':return $('#aiExtra').value.trim()||'（無）';
+  case '今天':{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+  default:return null}}
+const buildPrompt=p=>p.body.replace(/\[\[(.+?)\]\]/g,(m,n)=>{const v=ctxValue(n.trim());return v===null?m:v});
+function renderAI(){const p=curP();curPrompt=p.id;
+  $('#pList').innerHTML=G.prompts.map(x=>`<button data-p="${esc(x.id)}" aria-pressed="${x.id===p.id}">${esc(x.name||'未命名')}</button>`).join('');
+  $$('[data-p]').forEach(b=>b.addEventListener('click',()=>{curPrompt=b.dataset.p;renderAI()}));
+  $('#pDesc').textContent=(p.desc||'')+(p.kind==='html'?'（AI 會回傳完整原始碼，貼回來會自動檢查）':'');
+  $('#attachHint').innerHTML=p.attach?'<span class="chip warn">記得</span> '+esc(p.attach):'';
+  $('#extraChips').innerHTML=EXTRA_CHIPS.map((c,i)=>`<button class="mini" data-xc="${i}">＋ ${esc(c)}</button>`).join('');
+  $$('[data-xc]').forEach(b=>b.addEventListener('click',()=>{const ta=$('#aiExtra'),c=EXTRA_CHIPS[+b.dataset.xc];if(!ta.value.includes(c))ta.value=(ta.value.trim()?ta.value.trim()+'\n':'')+c}));
+  const s=U.srcs[U.srcs.length-1];$('#srcInfo').textContent=s?'會用「'+s.name+'」（'+fmtTime(s.time)+'）的內容核對 AI 新寫的文字。':'這個單元還沒有資料；在「資料比對」加入 Excel，或在下面貼上資料原文。';
+  if(!U.html.trim())$('#genInfo').textContent='這個單元還沒有原始碼，先到「原始碼與版本」從 CKEditor 匯入';else $('#genInfo').textContent='';
+  if(aiState)showResult()}
+$('#btnGen').addEventListener('click',()=>{const t=buildPrompt(curP());$('#aiPrompt').value=t;copyText(t,true).then(ok=>toast(ok?'提示詞已複製（約 '+t.length+' 字），貼到 AI 對話'+(curP().attach?'，並'+curP().attach:''):'無法自動複製，請展開「看產生的提示詞」手動複製'))});
+function extract(reply){const blocks=[];reply.replace(/```([\w-]*)\s*\n([\s\S]*?)```/g,(m,lang,body)=>{blocks.push({lang:lang.toLowerCase(),body:body.replace(/\s+$/,'')});return m});
+  let html=null,json=null,text=null;blocks.forEach(b=>{if(b.lang==='json'||(!b.lang&&/^\s*\{[\s\S]*\}\s*$/.test(b.body))){try{json=JSON.parse(b.body)}catch(e){try{json=JSON.parse(b.body.replace(/,\s*([}\]])/g,'$1'))}catch(e2){}}}else if(b.lang==='html'||(/<\/?[a-z][\s\S]*>/i.test(b.body)&&!html))html=(!html||b.body.length>html.length)?b.body:html;else if(!text)text=b.body});
+  if(!html&&!blocks.length&&/^\s*</.test(reply))html=reply.trim();return{html,json,text}}
+$('#btnParse').addEventListener('click',()=>{const r=$('#aiReply').value;if(!r.trim()){toast('先貼上 AI 的回覆');return}const x=extract(r);const p=curP();
+  $('#aiResult').hidden=true;$('#aiText').hidden=true;
+  if(x.html){aiState={cand:x.html,json:x.json||{},base:U.html};$('#aiCand').value=x.html;$('#aiLabel').value='';$('#aiRule').value='';showResult();$('#aiResult').scrollIntoView({behavior:'smooth',block:'start'});return}
+  aiState=null;$('#aiText').hidden=false;const btns=$('#aiTextBtns');btns.innerHTML='';
+  if(p.target==='checklist'){const lines=(x.text||r).split('\n').map(s=>s.replace(/^[\s\-*•\d.、]+/,'').trim()).filter(s=>s&&!/^```/.test(s));
+    $('#aiTextHint').textContent='AI 產生了 '+lines.length+' 項設定。存到這個單元後，每個上稿包都會附上這份清單。';const b=document.createElement('button');b.className='primary';b.textContent='存成這個單元的節點設定清單';b.onclick=()=>{U.checklist=lines;saveU();toast('已存 '+lines.length+' 項設定');$('#aiText').hidden=true};btns.appendChild(b)}
+  else $('#aiTextHint').textContent=p.kind==='html'?'回覆裡找不到 ```html 程式碼區塊。可以請 AI「把完整原始碼放在 ```html 程式碼區塊裡」再貼一次。':'這是文字回覆，直接在 AI 那邊使用即可。'});
+function showResult(){if(!aiState)return;const cand=aiState.cand;const s=U.srcs[U.srcs.length-1];const src=[s?bookText(s.sheets):'',$('#aiSrc').value].join('\n');
+  const cl=checkHtml(aiState.base,cand,src);const ch=checksHtml(cl);$('#aiChecks').innerHTML=ch.body;
+  $('#aiVerdict').innerHTML=ch.n.e?'<span class="chip bad">'+ch.n.e+' 個問題要處理</span>':ch.n.w?'<span class="chip warn">'+ch.n.w+' 個地方要看一下</span>':'<span class="chip ok">檢查通過</span>';
+  const j=aiState.json||{},chg=Array.isArray(j.changes)?j.changes:[],qs=Array.isArray(j.questions)?j.questions.filter(Boolean):[];
+  $('#aiNotes').innerHTML=(chg.length?'<ul class="checks">'+chg.map(c=>'<li><span>·</span><span>'+esc(c.where||'')+'：'+esc(c.before||'（無）')+' → '+esc(c.after||'（刪除）')+(c.source?'<br><span class="hint">依據：'+esc(c.source)+'</span>':'')+'</span></li>').join('')+'</ul>':'<p class="hint">AI 沒有附上修改清單。</p>')+(qs.length?'<h3 style="margin-top:8px">AI 要你確認</h3><ul class="checks">'+qs.map(q=>'<li class="w"><span>?</span><span>'+esc(typeof q==='string'?q:JSON.stringify(q))+'</span></li>').join('')+'</ul>':'');
+  $('#aiDiff').innerHTML=aiState.base===cand?'<span class="gap">和目前原始碼完全相同</span>':diffLinesHtml(aiState.base,cand);$('#aiPv').srcdoc=previewHtml(cand);$('#aiResult').hidden=false}
+let candT;$('#aiCand').addEventListener('input',e=>{if(!aiState)return;aiState.cand=e.target.value;clearTimeout(candT);candT=setTimeout(showResult,400)});
+$('#btnAccept').addEventListener('click',()=>{if(!aiState)return;const rule=$('#aiRule').value.trim();if(rule){if($('#aiRuleScope').value==='global'){G.rules.push(rule);saveG()}else U.rules.push(rule)}
+  if(U.html!==aiState.base)toast('注意：原始碼在這段期間被改過，仍以 AI 版本為準');U.html=aiState.cand;const v=snapshot($('#aiLabel').value.trim()||'AI：'+curP().name);aiState=null;$('#aiResult').hidden=true;$('#aiReply').value='';saveU();refreshBadge();toast('已存成 v'+v.no+(rule?'，規則已記下':'')+'。到「上稿到環境」打包')});
+$('#btnDiscard').addEventListener('click',()=>{aiState=null;$('#aiResult').hidden=true;toast('已放棄 AI 版本')});
+$('#pEditBtn').addEventListener('click',()=>{const p=curP();modal('編輯提示詞',`<div class="row"><input id="peName" type="text" value="${esc(p.name)}" style="flex:1;min-width:180px" aria-label="名稱"><select id="peKind" style="width:auto"><option value="html">回傳原始碼（會檢查）</option><option value="text">文字回覆</option></select></div>
+  <input id="peDesc" type="text" value="${esc(p.desc||'')}" placeholder="說明" aria-label="說明"><input id="peAttach" type="text" value="${esc(p.attach||'')}" placeholder="提醒要附什麼檔案（可留空）" aria-label="附件提醒">
+  <textarea id="peBody" class="mono" rows="14" spellcheck="false" aria-label="提示詞內容">${esc(p.body)}</textarea><div class="row">${PH.map(n=>`<button class="mini" data-ph="${esc(n)}">[[${esc(n)}]]</button>`).join('')}</div>
+  <p class="hint">點標籤會插入資料，產生提示詞時換成這個單元的實際內容。回傳原始碼的提示詞，結尾要保留輸出格式那一段。</p>
+  <div class="row"><button class="primary" id="peSave">儲存</button><button id="peNew">另存成新的提示詞</button><button class="danger" id="peDel">刪除</button><button class="danger" id="peReset">還原預設提示詞</button></div>`,b=>{
+  b.querySelector('#peKind').value=p.kind||'text';
+  b.querySelectorAll('[data-ph]').forEach(x=>x.onclick=()=>{const ta=b.querySelector('#peBody'),a=ta.selectionStart,c=ta.selectionEnd,s='[['+x.dataset.ph+']]';ta.value=ta.value.slice(0,a)+s+ta.value.slice(c);ta.selectionStart=ta.selectionEnd=a+s.length;ta.focus()});
+  const read=()=>({name:b.querySelector('#peName').value||'未命名',kind:b.querySelector('#peKind').value,desc:b.querySelector('#peDesc').value,attach:b.querySelector('#peAttach').value,body:b.querySelector('#peBody').value});
+  b.querySelector('#peSave').onclick=()=>{Object.assign(p,read());saveG();$('#modal').hidden=true;renderAI();toast('已儲存')};
+  b.querySelector('#peNew').onclick=()=>{const n=Object.assign({id:'p-'+uid(),target:p.target},read());G.prompts.push(n);curPrompt=n.id;saveG();$('#modal').hidden=true;renderAI();toast('已新增提示詞')};
+  armed(b.querySelector('#peDel'),()=>{if(G.prompts.length<=1)return;G.prompts=G.prompts.filter(x=>x.id!==p.id);curPrompt=G.prompts[0].id;saveG();$('#modal').hidden=true;renderAI()});
+  armed(b.querySelector('#peReset'),()=>{const own=G.prompts.filter(x=>!DEFAULT_PROMPTS.some(d=>d.id===x.id));G.prompts=clone(DEFAULT_PROMPTS).concat(own);saveG();$('#modal').hidden=true;renderAI();toast('預設提示詞已還原，你新增的保留')})})});
+
+/* ================= 3 原始碼與版本 ================= */
+function snapshot(label){const last=latestV();if(last&&last.html===U.html&&JSON.stringify(last.imgs)===JSON.stringify(imgSigMap(refFiles(U.html))))return last;
+  const v={id:uid(),no:(last?last.no:0)+1,time:Date.now(),label:label||'',html:U.html,imgs:imgSigMap(refFiles(U.html))};U.versions.push(v);if(U.versions.length>40)U.versions.splice(0,U.versions.length-40);return v}
+let vCmp=null;
+function renderCode(){if(document.activeElement!==$('#code'))$('#code').value=U.html;const l=latestV();$('#codeState').textContent=l?(l.html===U.html?'與 v'+l.no+' 相同':'有修改還沒存成版本'):'還沒有版本';
+  $('#impEnv').innerHTML=U.envs.map(e=>`<option value="${esc(e.id)}">${esc(e.name)}</option>`).join('');if(!$('#impEnv').dataset.v)$('#impEnv').value=U.envs[0].id;
+  $('#vList').innerHTML=U.versions.slice().reverse().map(v=>{const on=U.envs.filter(e=>e.sent&&e.sent.verId===v.id).map(e=>'<span class="chip ok">'+esc(e.name)+'</span>').join('');return `<div class="li"><div class="t"><b>v${v.no}　<span class="s">${fmtTime(v.time)}</span></b><span class="s">${esc(v.label)}</span><div class="row">${on}</div></div><div class="row"><button class="mini" data-vc="${esc(v.id)}">和目前比較</button><button class="mini" data-vr="${esc(v.id)}">還原成這版</button></div></div>`}).join('')||'<p class="hint">還沒有版本。</p>';
+  $$('[data-vc]').forEach(b=>b.addEventListener('click',()=>{const v=verById(b.dataset.vc);$('#vDiff').innerHTML='<h3>v'+v.no+' → 目前</h3><div class="diff mono">'+diffLinesHtml(v.html,U.html)+'</div>'}));
+  $$('[data-vr]').forEach(b=>armed(b,()=>{const v=verById(b.dataset.vr);U.html=v.html;saveU();renderCode();refreshBadge();toast('已還原成 v'+v.no+' 的內容（還沒存成新版本）')}))}
+$('#code').addEventListener('input',e=>{U.html=e.target.value;saveU();const l=latestV();$('#codeState').textContent=l&&l.html===U.html?'與 v'+l.no+' 相同':'有修改還沒存成版本';refreshBadge()});
+$('#codeSave').addEventListener('click',()=>{const n=U.versions.length;const v=snapshot($('#codeLabel').value.trim()||'手動修改');$('#codeLabel').value='';saveU();renderCode();toast(U.versions.length>n?'已存成 v'+v.no:'內容和 v'+v.no+' 相同，不用另存')});
+$('#codePv').addEventListener('click',()=>{const f=$('#codePvF');f.hidden=!f.hidden;if(!f.hidden)f.srcdoc=previewHtml(U.html)});
+$('#impEnv').addEventListener('change',e=>e.target.dataset.v='1');
+$('#impGo').addEventListener('click',()=>{let raw=$('#impCode').value;if(!raw.trim()){toast('先貼上 CKEditor 的原始碼');return}const env=U.envs.find(e=>e.id===$('#impEnv').value);let note='';
+  U.envs.map(e=>e.base).filter(Boolean).sort((a,b)=>b.length-a.length).forEach(b=>{raw=raw.split(b).join('{{BASE}}')});
+  const srcs=[...raw.matchAll(/<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/gi)].map(m=>m[1]).filter(s=>!s.startsWith('{{BASE}}')&&!s.startsWith('data:'));
+  if(srcs.length){const cnt={};srcs.forEach(s=>{const d=s.slice(0,s.lastIndexOf('/')+1);if(d)cnt[d]=(cnt[d]||0)+1});const dir=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
+    if(dir){if(!env.base){env.base=dir;note='，認出 '+env.name+' 的圖片路徑是 '+dir}if(env.base===dir)raw=raw.split(dir).join('{{BASE}}')}}
+  U.html=raw;const v=snapshot('從 '+env.name+' 匯入');if($('#impMark').checked){env.sent={verId:v.id,at:Date.now(),imgs:imgSigMap(refFiles(U.html))}}
+  $('#impCode').value='';saveU();renderCode();refreshBadge();const left=[...raw.matchAll(/<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/gi)].filter(m=>!m[1].startsWith('{{BASE}}')).length;
+  toast('已匯入為 v'+v.no+note+(left?'。有 '+left+' 張圖片路徑不在同一資料夾，保留原樣':''))});
+
+/* ================= 4 圖片 ================= */
+const IMG_T=['image/jpeg','image/png','image/webp','image/bmp'];
+function safeName(n,ext){const o=n.replace(/\.[^.]+$/,'').normalize('NFKC');let b=o.replace(/[^\w\-.]+/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');const d=new Date(),md=pad(d.getMonth()+1)+pad(d.getDate());if(/[^\x00-\x7f]/.test(o)||b.length<4)b='photo-'+md+(b?'-'+b:'-'+Date.now().toString(36).slice(-4));return b.toLowerCase()+ext}
+function blobToDataURL(b){return new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b)})}
+async function optimize(file){const fmt=G.fmt,maxE=+G.maxEdge||0,q=(+G.q||82)/100;const orig=await blobToDataURL(file);
+  if(fmt==='keep'||!IMG_T.includes(file.type)){const im=await loadImg(orig);return{data:orig,w:im?im.naturalWidth:0,h:im?im.naturalHeight:0,ext:'.'+(file.name.split('.').pop()||'jpg').toLowerCase()}}
+  const im=await loadImg(orig);if(!im)return null;const w=im.naturalWidth,h=im.naturalHeight,s=maxE>0?Math.min(1,maxE/Math.max(w,h)):1,cw=Math.max(1,Math.round(w*s)),ch=Math.max(1,Math.round(h*s));
+  const c=document.createElement('canvas');c.width=cw;c.height=ch;const g=c.getContext('2d');if(fmt==='image/jpeg'){g.fillStyle='#fff';g.fillRect(0,0,cw,ch)}g.imageSmoothingQuality='high';g.drawImage(im,0,0,cw,ch);
+  let d=c.toDataURL(fmt,q);if(!d.startsWith('data:'+fmt))d=c.toDataURL('image/jpeg',q);const ext=d.startsWith('data:image/webp')?'.webp':'.jpg';
+  if(s===1&&d.length>=orig.length&&file.type===(ext==='.webp'?'image/webp':'image/jpeg'))return{data:orig,w,h,ext};return{data:d,w:cw,h:ch,ext}}
+function loadImg(src){return new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src=src})}
+async function addImages(files){files=[...files];let n=0,rep=0;for(const f of files){if(!/^image\//.test(f.type))continue;const r=await optimize(f);if(!r)continue;const file=safeName(f.name,r.ext);const rec={file,data:r.data,w:r.w,h:r.h,size:Math.round((r.data.length-r.data.indexOf(',')-1)*0.75),sig:crcS(r.data)+'-'+r.data.length,orig:f.name};
+  const i=U.images.findIndex(x=>x.file===file);if(i>=0){U.images[i]=rec;rep++}else U.images.push(rec);n++}saveU();renderImgs();refreshBadge();toast('已加入 '+n+' 張'+(rep?'（其中 '+rep+' 張取代舊圖）':''))}
+function altOf(file){const m=U.html.match(new RegExp('<img\\b[^>]*\\{\\{BASE\\}\\}'+file.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[^>]*>','i'));if(!m)return null;const a=m[0].match(/\balt\s*=\s*("([^"]*)"|'([^']*)')/i);return a?(a[2]!==undefined?a[2]:a[3]||''):undefined}
+function renderImgs(){$('#iFmt').value=G.fmt;$('#iMax').value=String(G.maxEdge);$('#iQ').value=G.q;const refs=refFiles(U.html);
+  const miss=refs.filter(f=>!U.images.some(i=>i.file===f));$('#iWarn').innerHTML=miss.length?'<li class="w"><span>!</span><span>原始碼用到但這裡沒有的圖片：'+miss.map(esc).join('、')+'。如果這些圖已經在 CMS 上就不用管；要換圖的話，用同樣檔名拖進來。</span></li>':'';
+  $('#iGrid').innerHTML=U.images.map((im,i)=>{const used=refs.includes(im.file),alt=altOf(im.file);return `<div class="img"><div class="th" style="background-image:url('${im.data}')"></div><div class="mt">
+    <input type="text" value="${esc(im.file)}" data-ren="${i}" aria-label="檔名">
+    <span class="hint">${im.w}×${im.h}｜${fsz(im.size)}${im.orig&&im.orig!==im.file?'｜原檔 '+esc(im.orig):''}</span>
+    <div class="row">${used?'<span class="chip ok">原始碼有用到</span>':'<span class="chip mute">原始碼沒用到</span>'}${used?(alt===undefined?'<span class="chip bad">沒有 alt</span>':!String(alt).trim()?'<span class="chip warn">alt 空白</span>':''):''}</div>
+    <div class="row">${U.envs.map(e=>'<span class="chip '+(e.sent&&e.sent.imgs&&e.sent.imgs[im.file]===im.sig?'ok':'mute')+'">'+esc(e.name)+(e.sent&&e.sent.imgs&&e.sent.imgs[im.file]===im.sig?' 已上':' 未上')+'</span>').join('')}</div>
+    <div class="row"><button data-tag="${i}">複製 img 標籤</button><button class="danger" data-idel="${i}">刪除</button></div></div></div>`}).join('')||'<p class="hint">還沒有圖片。</p>';
+  $$('[data-tag]').forEach(b=>b.addEventListener('click',()=>copyText('<img src="{{BASE}}'+U.images[+b.dataset.tag].file+'" alt="">')));
+  $$('[data-idel]').forEach(b=>armed(b,()=>{U.images.splice(+b.dataset.idel,1);saveU();renderImgs();refreshBadge()}));
+  $$('[data-ren]').forEach(el=>el.addEventListener('change',()=>{const im=U.images[+el.dataset.ren];const nf=el.value.trim().replace(/[^\w\-.]/g,'-');if(!nf||U.images.some(x=>x!==im&&x.file===nf)){toast('檔名重複或空白，已還原');el.value=im.file;return}
+    U.html=U.html.split('{{BASE}}'+im.file).join('{{BASE}}'+nf);im.file=nf;saveU();renderImgs();refreshBadge();toast('已改名，原始碼裡的引用也一起改了')}))}
+$('#iFmt').addEventListener('change',e=>{G.fmt=e.target.value;saveG()});$('#iMax').addEventListener('change',e=>{G.maxEdge=+e.target.value;saveG()});$('#iQ').addEventListener('change',e=>{G.q=Math.min(100,Math.max(40,+e.target.value||82));saveG()});
+const iDrop=$('#iDrop');['dragenter','dragover'].forEach(t=>iDrop.addEventListener(t,e=>{e.preventDefault();iDrop.classList.add('over')}));['dragleave','drop'].forEach(t=>iDrop.addEventListener(t,e=>{e.preventDefault();iDrop.classList.remove('over')}));
+iDrop.addEventListener('drop',e=>addImages(e.dataTransfer.files));$('#iPick').addEventListener('click',()=>$('#iFile').click());$('#iFile').addEventListener('change',e=>{addImages(e.target.files);e.target.value=''});
+
+/* ================= 5 上稿 ================= */
+let packed=null;
+function renderShip(){if(!U.envs.some(e=>e.id===curEnv))curEnv=U.envs[0].id;const lab={none:['未上稿','mute'],need:['需更新','warn'],ok:['最新','ok'],empty:['沒有內容','mute']};
+  $('#sEnvs').innerHTML=U.envs.map(e=>{const st=envState(e);const v=e.sent&&verById(e.sent.verId);const L=lab[st.s];
+    return `<button class="env" data-env="${esc(e.id)}" aria-pressed="${e.id===curEnv}"><span class="nm"><span>${esc(e.name)}</span><span class="chip ${L[1]}">${L[0]}</span></span><span class="st">${v?'已上 v'+v.no+'（'+fmtTime(e.sent.at)+'）':'沒有上稿紀錄'}${st.s==='need'?'<br>之後'+(st.htmlChanged?'原始碼有改':'')+(st.htmlChanged&&st.imgs.length?'、':'')+(st.imgs.length?st.imgs.length+' 張圖要上':''):''}</span><span class="st mono">${esc(e.base||'（圖片路徑未設定）')}</span></button>`}).join('');
+  $$('[data-env]').forEach(b=>b.addEventListener('click',()=>{curEnv=b.dataset.env;packed=null;renderShip()}));
+  const e=U.envs.find(x=>x.id===curEnv),st=envState(e),all=$('#sAllImg').checked,imgs=neededImgs(e,all);$('#sTitle').textContent='上稿到 '+e.name;
+  let h='';if(st.s==='empty')h='<p class="hint">這個單元還沒有原始碼。</p>';else{
+    h+=e.sent&&st.v?(st.htmlChanged?'<h3>原始碼變更（v'+st.v.no+' → 目前）</h3><div class="diff mono">'+diffLinesHtml(st.v.html,U.html)+'</div>':'<p class="hint">原始碼和 '+esc(e.name)+' 上的 v'+st.v.no+' 相同。</p>'):'<p class="hint">'+esc(e.name)+' 沒有上稿紀錄，會打包完整原始碼。</p>';
+    h+='<h3>圖片（'+imgs.length+' 張）</h3>'+(imgs.length?'<p class="hint">'+imgs.map(i=>esc(i.file)+'（'+fsz(i.size)+'）').join('、')+'</p>':'<p class="hint">沒有要上傳的圖片。</p>');
+    h+='<h3>節點設定清單</h3>'+(U.checklist.length?'<p class="hint">'+U.checklist.map(esc).join('｜')+'</p>':'<p class="hint">沒有設定清單（可在「單元設定」填，或用 AI 從截圖產生）。</p>');
+    if(!e.base&&refFiles(U.html).length)h+='<ul class="checks"><li class="e"><span>✗</span><span>'+esc(e.name)+' 的圖片路徑前綴還沒設定，原始碼裡的圖片會變成只有檔名。到「單元設定」填寫。</span></li></ul>';
+    const cl=checkHtml(U.html,U.html,'').filter(c=>c[0]==='e');if(cl.length)h+='<ul class="checks">'+cl.map(c=>'<li class="e"><span>✗</span><span>'+esc(c[1])+'</span></li>').join('')+'</ul>'}
+  $('#sWhat').innerHTML=h;$('#sChunk').value=String(G.chunk);$('#sZip').checked=!!G.zip;
+  $('#sPacked').hidden=!packed;if(packed)drawChunks();
+  $('#sMarkHint').textContent=packed?'上完後按這裡，記下 '+e.name+' 現在是 v'+packed.ver+'。':'不用打包也可以直接標記（例如手動上稿完成時）。';
+  $('#rSize').textContent=fsz(receiverText().length);refreshBadge()}
+$('#sAllImg').addEventListener('change',()=>{packed=null;renderShip()});
+$('#sZip').addEventListener('change',e=>{G.zip=e.target.checked;saveG();packed=null;renderShip()});
+$('#sChunk').addEventListener('change',e=>{G.chunk=+e.target.value;saveG();packed=null;renderShip()});
+$('#sCopyHtml').addEventListener('click',()=>{const e=U.envs.find(x=>x.id===curEnv);copyText(renderFor(U.html,e))});
+const fnSafe=s=>String(s).replace(/[\\/:*?"<>|\s]+/g,'_').slice(0,60);
+$('#sPack').addEventListener('click',async()=>{const e=U.envs.find(x=>x.id===curEnv);if(!U.html.trim()){toast('沒有原始碼可以打包');return}const btn=$('#sPack');btn.disabled=true;btn.textContent='打包中…';
+  try{const v=snapshot('打包到 '+e.name);saveU();const st=envState(e),imgs=neededImgs(e,$('#sAllImg').checked);const html=renderFor(U.html,e);
+    const changes=e.sent&&st.v?(st.htmlChanged?changeLines(renderFor(st.v.html,e),html,40).join('\n'):'原始碼沒有變更，只需要上傳圖片'):'';
+    const d=new Date(),man={type:'cms-pack',v:1,unit:U.name,cms:U.cms,path:U.path,env:e.name,base:e.base,ver:v.no,time:d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes()),html,changes,images:imgs.map(i=>i.file),checklist:U.checklist,admin:e.admin,front:e.front};
+    const enc=new TextEncoder();const zip=buildZip([{name:'manifest.json',data:enc.encode(JSON.stringify(man))},{name:'原始碼.html',data:enc.encode(html)},...imgs.map(i=>({name:'images/'+i.file,data:dataUrlBytes(i.data)}))]);
+    let payload=zip,flags='B';if(G.zip){const z=await deflate(zip);if(z&&z.length<zip.length*0.9){payload=z;flags='BZ'}}
+    const h=await sha(payload);const name=fnSafe(U.name)+'_'+fnSafe(e.name)+'_v'+v.no+'.zip';const chunks=makeChunks(payload,name,flags,+G.chunk,h);
+    packed={env:e.id,ver:v.no,verId:v.id,imgs:imgSigMap(imgs.map(i=>i.file)),chunks,next:0,done:new Set(),size:payload.length,raw:zip.length,nimg:imgs.length};e.packed={verId:v.id,imgs:packed.imgs,at:Date.now()};saveU();renderShip();
+    toast('已打包：'+chunks.length+' 卷')}catch(err){toast('打包失敗：'+(err.message||err))}btn.disabled=false;btn.textContent='打包上稿包'});
+function drawChunks(){const p=packed;$('#sPackInfo').textContent='v'+p.ver+'｜'+p.nimg+' 張圖片｜'+fsz(p.size)+(p.size<p.raw?'（壓縮前 '+fsz(p.raw)+'）':'')+'｜共 '+p.chunks.length+' 卷';
+  $('#sNext').textContent=p.next<p.chunks.length?'複製下一卷（第 '+(p.next+1)+' / '+p.chunks.length+' 卷）':'全部複製過了（再按從第 1 卷開始）';
+  $('#sChunks').innerHTML=p.chunks.map((c,i)=>`<button data-ck="${i}" class="${p.done.has(i)?'done':''}" aria-label="第 ${i+1} 卷">${i+1}</button>`).join('');$$('[data-ck]').forEach(b=>b.addEventListener('click',()=>copyChunk(+b.dataset.ck)))}
+async function copyChunk(i){const ok=await copyText(packed.chunks[i],true);if(ok){packed.done.add(i);packed.next=i+1;toast('已複製第 '+(i+1)+' / '+packed.chunks.length+' 卷，到收件台按 Ctrl+V')}else toast('複製失敗，請再按一次');drawChunks()}
+$('#sNext').addEventListener('click',()=>{if(!packed)return;if(packed.next>=packed.chunks.length)packed.next=0;copyChunk(packed.next)});
+$('#sMark').addEventListener('click',()=>{const e=U.envs.find(x=>x.id===curEnv);let verId,imgs;
+  if(packed&&packed.env===e.id){verId=packed.verId;imgs=Object.assign({},e.sent?e.sent.imgs:{},packed.imgs)}else{const v=snapshot('上稿到 '+e.name);verId=v.id;imgs=imgSigMap(refFiles(U.html))}
+  e.sent={verId,at:Date.now(),imgs};packed=null;saveU();renderShip();toast(e.name+' 已標記為 v'+verById(verId).no)});
+$('#sTest').addEventListener('click',()=>{const sizes=[200000,500000,1000000,2000000,4000000,8000000];modal('剪貼簿容量測試','<p class="hint">從小到大，一個一個複製，貼到 VDI 的收件台。收件台會顯示「完整收到」或「不完整」。最後一個完整的大小，就是「每卷大小」可以用的上限。</p><div class="chunks" id="ctl">'+sizes.map(s=>`<button data-cs="${s}">${s/1e6} MB</button>`).join('')+'</div>',b=>{
+  b.querySelectorAll('[data-cs]').forEach(x=>x.onclick=async()=>{const n=+x.dataset.cs,bytes=Math.floor(n/4)*3,u=new Uint8Array(bytes);let s=7;for(let i=0;i<bytes;i++){s=(s*1103515245+12345)&0x7fffffff;u[i]=s>>16}
+    const h=await sha(u);const c=makeChunks(u,'容量測試 '+(n/1e6)+' MB','T',0,h)[0];const ok=await copyText(c,true);x.classList.toggle('done',ok);toast(ok?'已複製 '+(n/1e6)+' MB 測試包，到收件台貼上':'這台電腦的瀏覽器複製不了這麼大，上限就在前一級')})})});
+function receiverText(){try{return new TextDecoder().decode(b64d(RECEIVER_B64))}catch(e){return ''}}
+$('#rCopy').addEventListener('click',()=>copyText(receiverText()));
+$('#rDl').addEventListener('click',()=>download('收件台.html',new Blob([receiverText()],{type:'text/html'})));
+
+/* ================= 範例與啟動 ================= */
+function sampleImg(label,hue){const c=document.createElement('canvas');c.width=800;c.height=500;const g=c.getContext('2d');const gr=g.createLinearGradient(0,0,800,500);gr.addColorStop(0,'hsl('+hue+',40%,36%)');gr.addColorStop(1,'hsl('+(hue+30)+',35%,60%)');g.fillStyle=gr;g.fillRect(0,0,800,500);g.fillStyle='rgba(255,255,255,.92)';g.font='bold 44px sans-serif';g.textAlign='center';g.fillText(label,400,250);g.font='24px sans-serif';g.fillText('範例圖片',400,295);return c.toDataURL('image/jpeg',0.8)}
+function seed(){const u=blankUnit();u.name='【範例】COP31 論壇講者名單';u.cms='（範例）機關官網';u.path='（範例）COP31 專區 > 論壇資訊';u.tags='範例, COP31';
+  u.envs[0].base='/upload/cop31/';u.envs[1].base='/test/upload/cop31/';u.envs[2].base='/upload/cop31/';
+  u.rules=['同一場次：主持人在前，與談人依邀約次序','單位職稱用「／」分隔，不加粗'];u.checklist=['前台顯示：是','上架日期：活動前一天','置頂：否'];
+  [['forum-1109.jpg','11/9 論壇',175],['forum-1110.jpg','11/10 論壇',205]].forEach(([f,l,h])=>{const d=sampleImg(l,h);u.images.push({file:f,data:d,w:800,h:500,size:Math.round(d.length*0.75),sig:crcS(d)+'-'+d.length})});
+  const v1='<h2>COP31 周邊論壇講者（範例）</h2>\n\n<!-- 場次:11/9 -->\n<h3>11月9日（一）淨零轉型論壇</h3>\n<p><img src="{{BASE}}forum-1109.jpg" alt="（範例）11月9日淨零轉型論壇主視覺" style="width:300px"></p>\n<ul>\n<li>主持人：王大明　範例大學／環境學系／教授</li>\n<li>與談人：李小華　範例研究院／氣候中心／研究員</li>\n</ul>\n\n<!-- 場次:11/10 -->\n<h3>11月10日（二）氣候調適論壇</h3>\n<p><img src="{{BASE}}forum-1110.jpg" alt="" style="width:300px"></p>\n<ul>\n<li>主持人：陳美玲　範例基金會／執行長</li>\n<li>與談人：林志明　範例公司／永續部／經理</li>\n</ul>';
+  U=u;U.html=v1;const v=snapshot('從公司機匯入（範例）');[0,1].forEach(i=>u.envs[i].sent={verId:v.id,at:Date.now()-3600e3,imgs:imgSigMap(refFiles(v1))});
+  const H=['論壇日期','邀約身分別','邀約次序','邀約狀態','姓名','單位職稱','備註'];
+  const s1=[['COP31 講者邀約總表（範例）'],H,['11/9（一）','主持人','1','確定出席','王大明','範例大學／環境學系／教授',''],['','與談人','1','確定出席','李小華','範例研究院／氣候中心／研究員',''],['','與談人','2','洽詢中','','','※主辦單位邀請中'],['11/10（二）','主持人','1','確定出席','陳美玲','範例基金會／執行長',''],['','與談人','1','確定出席','林志明','範例公司／永續部／經理','']];
+  const s2=clone(s1);s2[3][5]='範例研究院／氣候中心／副研究員';s2[4]=['','與談人','2','確定出席','張家豪（職稱待確認）','範例協會／理事長',''];s2[6]=['','與談人','1','婉拒','林志明','範例公司／永續部／經理','改邀黃雅婷'];s2.push(['','與談人','2','確定出席','黃雅婷','範例顧問公司／總監','']);
+  u.srcs=[{id:uid(),name:'（範例）電腦公會 11/05 版',time:Date.now()-86400e3,sheets:{'講者名單':s1}},{id:uid(),name:'（範例）電腦公會 11/06 版',time:Date.now()-3600e3,sheets:{'講者名單':s2}}];return u}
+(async function init(){await store.open();G=await store.get('global');if(!G)G=defaultGlobal();else{const d=defaultGlobal();Object.keys(d).forEach(k=>{if(G[k]===undefined)G[k]=d[k]});DEFAULT_PROMPTS.forEach(p=>{if(!G.seen.includes(p.id)&&!G.prompts.some(x=>x.id===p.id))G.prompts.push(clone(p))});G.seen=DEFAULT_PROMPTS.map(p=>p.id)}saveG();
+  IDX=(await store.get('index'))||[];const cur=await store.get('current');let u=null;if(IDX.length)u=await store.get('unit:'+(IDX.some(x=>x.id===cur)?cur:IDX[0].id));
+  if(u){U=normU(u);$('#saveState').textContent='已載入本機資料'}else{seed();await saveNow()}
+  renderUnitSel();showTab(U.html.trim()?'ai':'code')})();
+})();
+</script>

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>上稿收件台</title>
+<style>
+:root{--bg:#f3f5f4;--card:#fff;--ink:#1d2a2c;--mut:#5f6f71;--line:#d3dbda;--ac:#0f6b66;--ok:#2e7d4f;--warn:#a15c07;--bad:#b3261e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 "Microsoft JhengHei","PingFang TC",system-ui,sans-serif}
+.w{max-width:980px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+h1{margin:0;font-size:20px}h2{margin:0;font-size:15px}p{margin:0}.mut{color:var(--mut);font-size:13px}
+textarea{width:100%;font:12.5px/1.5 Consolas,monospace;border:2px dashed var(--ac);border-radius:8px;padding:10px;background:#fff;color:var(--ink)}
+#pa{height:70px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.card.done{border-color:var(--ok)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;font-size:13px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:6px 12px;border-radius:7px;cursor:pointer}
+button.p{background:var(--ac);color:#fff;border-color:var(--ac)}button:disabled{opacity:.5}
+.msg{padding:8px 10px;border-radius:7px;font-size:13.5px}.msg.ok{background:#e4f4ea;color:#1f5c38}.msg.err{background:#fbe7e5;color:#8c1d16}.msg.info{background:#e3eef0;color:#0f4f4b}.msg.warn{background:#fdf1dc;color:#7a4504}
+.grid{display:flex;flex-wrap:wrap;gap:3px}.cell{width:22px;height:22px;border-radius:3px;background:#e2e8e7;font-size:10px;line-height:22px;text-align:center;color:var(--mut)}.cell.g{background:var(--ok);color:#fff}
+.it{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)}.it:first-child{border-top:0}
+.step{border-left:3px solid var(--ac);padding-left:10px;display:flex;flex-direction:column;gap:6px}
+.ck{display:flex;gap:8px;align-items:flex-start}.ck input{margin-top:4px}
+pre{white-space:pre-wrap;word-break:break-word;background:#f7f9f9;border:1px solid var(--line);border-radius:7px;padding:8px;margin:0;font:12.5px/1.6 Consolas,monospace;max-height:260px;overflow:auto}
+iframe{width:100%;height:420px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.hid{display:none!important}
+</style></head><body><div class="w">
+<div><h1>上稿收件台</h1><p class="mut">在這一頁任何地方按 Ctrl+V 貼上包裹。順序亂、重複貼都沒關係；分頁關掉重開也會接著收。包裹請直接貼到這裡，不用先貼到記事本。</p></div>
+<textarea id="pa" placeholder="點這裡，按 Ctrl+V 貼上包裹"></textarea>
+<div id="msg" class="msg hid"></div>
+<div id="tests" class="card hid"><h2>剪貼簿容量測試</h2><div id="tl"></div><p class="mut">從小到大一卷一卷貼。出現「不完整」的那一級，代表超過上限；工作台的「每卷大小」請選它前一級。</p></div>
+<div id="list"></div>
+<div class="row"><button id="clr">清空全部</button><span class="mut">收件台版本 1.0，可接收物流箱 V5 包裹</span></div>
+</div>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const T=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;T[n]=c>>>0}
+const h8=n=>(n>>>0).toString(16).padStart(8,'0');
+function crcS(s){let c=-1;for(let i=0;i<s.length;i++)c=T[(c^s.charCodeAt(i))&255]^(c>>>8);return h8(c^-1)}
+function crcB(u){let c=-1;for(let i=0;i<u.length;i++)c=T[(c^u[i])&255]^(c>>>8);return (c^-1)>>>0}
+function shaJs(b){const K=[],H=[];{let n=2,k=0;const pr=x=>{for(let i=2;i*i<=x;i++)if(x%i===0)return false;return true},fr=x=>((x-Math.floor(x))*4294967296)>>>0;while(k<64){if(pr(n)){if(k<8)H[k]=fr(Math.pow(n,1/2));K[k]=fr(Math.cbrt(n));k++}n++}}
+ const L=b.length,P=Math.ceil((L+9)/64)*64,u=new Uint8Array(P);u.set(b);u[L]=128;const d=new DataView(u.buffer);d.setUint32(P-8,Math.floor(L/536870912));d.setUint32(P-4,(L<<3)>>>0);const W=new Uint32Array(64),r=(x,n)=>(x>>>n)|(x<<(32-n));
+ for(let o=0;o<P;o+=64){for(let i=0;i<16;i++)W[i]=d.getUint32(o+i*4);for(let i=16;i<64;i++)W[i]=(W[i-16]+(r(W[i-15],7)^r(W[i-15],18)^(W[i-15]>>>3))+W[i-7]+(r(W[i-2],17)^r(W[i-2],19)^(W[i-2]>>>10)))>>>0;
+  let[a,b2,c,e0,e,f,g,h]=H;for(let i=0;i<64;i++){const t1=(h+(r(e,6)^r(e,11)^r(e,25))+((e&f)^(~e&g))+K[i]+W[i])>>>0,t2=((r(a,2)^r(a,13)^r(a,22))+((a&b2)^(a&c)^(b2&c)))>>>0;h=g;g=f;f=e;e=(e0+t1)>>>0;e0=c;c=b2;b2=a;a=(t1+t2)>>>0}
+  [a,b2,c,e0,e,f,g,h].forEach((v,i)=>H[i]=(H[i]+v)>>>0)}return H.map(h8).join('')}
+async function sha(u){try{if(crypto&&crypto.subtle){const d=await crypto.subtle.digest('SHA-256',u);return[...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,'0')).join('')}}catch(e){}return shaJs(u)}
+function b64d(s){const a=atob(s),u=new Uint8Array(a.length);for(let i=0;i<a.length;i++)u[i]=a.charCodeAt(i);return u}
+function cat(arr){const o=new Uint8Array(arr.reduce((s,a)=>s+a.length,0));let p=0;arr.forEach(a=>{o.set(a,p);p+=a.length});return o}
+async function inflate(u){if(typeof DecompressionStream==='undefined')throw new Error('這個瀏覽器無法解壓縮，請在工作台取消「壓縮」後重新打包');return new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer())}
+function unzip(u){const v=new DataView(u.buffer,u.byteOffset,u.byteLength),dec=new TextDecoder();let e=-1;for(let i=u.length-22;i>=Math.max(0,u.length-65557);i--)if(v.getUint32(i,true)===0x06054b50){e=i;break}
+ if(e<0)throw new Error('包裹內容不是有效的檔案組合');const n=v.getUint16(e+10,true);let p=v.getUint32(e+16,true);const out=[];
+ for(let k=0;k<n;k++){if(v.getUint32(p,true)!==0x02014b50)throw new Error('檔案目錄損毀');const m=v.getUint16(p+10,true),crc=v.getUint32(p+16,true),cs=v.getUint32(p+20,true),nl=v.getUint16(p+28,true),xl=v.getUint16(p+30,true),cl=v.getUint16(p+32,true),lh=v.getUint32(p+42,true);
+  const name=dec.decode(u.subarray(p+46,p+46+nl));if(m!==0)throw new Error('不支援的壓縮格式');const s=lh+30+v.getUint16(lh+26,true)+v.getUint16(lh+28,true),data=u.subarray(s,s+cs);if(crcB(data)!==crc)throw new Error('「'+name+'」校驗不符');out.push({name,data});p+=46+nl+xl+cl}return out}
+const RE=/^\?OFX([56]):([0-9a-f]{12}):([A-Za-z0-9+/=]+):(\d+):(\d+):([BFZT]+):([0-9a-f]{64}):([0-9a-f]{8})\?([\s\S]*)$/;
+function parse(raw){const t=raw.replace(/\s/g,''),m=t.match(RE);if(!m)return{ok:false,e:'看不出是包裹，請確認整卷都有複製到（開頭應該是 ?OFX）'};
+ let name;try{name=decodeURIComponent(atob(m[3]))}catch(e){return{ok:false,e:'包裹標頭損毀'}}const idx=+m[4],total=+m[5],data=m[9];
+ const r={ok:true,key:m[2],name,idx,total,flags:m[6],sha:m[7],data,crcOk:crcS(data)===m[8]};if(idx<1||idx>total)return{ok:false,e:'卷號不合理'};return r}
+const MIME={pdf:'application/pdf',webp:'image/webp',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',svg:'image/svg+xml',zip:'application/zip',html:'text/html',txt:'text/plain',json:'application/json'};
+const mime=n=>MIME[n.split('.').pop().toLowerCase()]||'application/octet-stream';
+const fsz=n=>n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(2)+' MB';
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}
+async function copy(s){try{if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(s);return true}}catch(e){}const t=document.createElement('textarea');t.value=s;t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}t.remove();return ok}
+function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e}
+function say(t,c){const m=$('msg');m.textContent=t;m.className='msg '+c}
+/* 斷線續收：存在瀏覽器 */
+let DB=null;const G=new Map();
+function dbOpen(){return new Promise(r=>{try{const q=indexedDB.open('cms-receiver',1);q.onupgradeneeded=()=>q.result.createObjectStore('g');q.onsuccess=()=>{DB=q.result;r()};q.onerror=()=>r()}catch(e){r()}})}
+function dbPut(g){if(!DB)return;try{const{el,urls,...rest}=g;rest.chunks=[...g.chunks];DB.transaction('g','readwrite').objectStore('g').put(rest,g.key)}catch(e){}}
+function dbDel(k){if(!DB)return;try{DB.transaction('g','readwrite').objectStore('g').delete(k)}catch(e){}}
+function dbAll(){return new Promise(r=>{if(!DB)return r([]);try{const q=DB.transaction('g').objectStore('g').getAll();q.onsuccess=()=>r(q.result||[]);q.onerror=()=>r([])}catch(e){r([])}})}
+/* 收件 */
+function onPaste(text){if(!text||!text.trim())return;const r=parse(text);if(!r.ok){say('⚠ '+r.e,'err');return}
+ if(r.flags.includes('T')){testResult(r);return}
+ if(!r.crcOk){say('⚠「'+r.name+'」第 '+r.idx+' 卷內容不完整（校驗不符），請回工作台重新複製這一卷。若一直失敗，代表每卷太大，請把每卷大小調小。','err');return}
+ let g=G.get(r.key);if(!g){g={key:r.key,name:r.name,total:r.total,flags:r.flags,sha:r.sha,chunks:new Map(),done:false,t:Date.now()};G.set(r.key,g)}
+ if(g.done){say('「'+g.name+'」已經還原完成，這一卷略過。','info');return}
+ if(g.chunks.has(r.idx)){say('第 '+r.idx+' 卷已經收過，略過（目前 '+g.chunks.size+'/'+g.total+'）。','info');return}
+ g.chunks.set(r.idx,r.data);const left=g.total-g.chunks.size;say('✓ 收到「'+g.name+'」第 '+r.idx+' / '+g.total+' 卷'+(left?'，還差 '+left+' 卷':'，已收齊'),'ok');
+ dbPut(g);draw(g);if(!left)build(g)}
+const tests=new Map();
+function testResult(r){tests.set(r.name,tests.get(r.name)||r.crcOk);$('tests').classList.remove('hid');const tl=$('tl');tl.innerHTML='';[...tests].forEach(([n,ok])=>tl.appendChild(el('div','msg '+(ok?'ok':'err'),(ok?'✓ ':'✗ ')+n+(ok?'：完整收到':'：內容不完整，超過剪貼簿上限'))));say(r.name+(r.crcOk?'：通過':'：不完整'),r.crcOk?'ok':'err')}
+async function build(g){if(g.busy||g.done)return;g.busy=true;g.gm=['info','還原與驗證中…'];draw(g);
+ try{let u=cat([...Array(g.total)].map((_,i)=>b64d(g.chunks.get(i+1))));if(await sha(u)!==g.sha)throw new Error('整檔驗證不符，可能混入另一次打包的卷，請清除後重貼');
+  if(g.flags.includes('Z'))u=await inflate(u);g.bytes=u;g.chunks=new Map();g.done=true;g.gm=null;dbPut(g)}
+ catch(e){g.gm=['err','還原失敗：'+e.message]}g.busy=false;draw(g)}
+function draw(g){if(!g.el){g.el=el('div','card');$('list').prepend(g.el)}const b=g.el;b.className='card'+(g.done?' done':'');b.innerHTML='';
+ const hd=el('div','row');hd.appendChild(el('h2','',g.name));hd.appendChild(el('span','mut',g.done?'已還原':g.chunks.size+' / '+g.total+' 卷'));b.appendChild(hd);
+ if(!g.done){const gr=el('div','grid');for(let i=1;i<=g.total;i++)gr.appendChild(el('span','cell'+(g.chunks.has(i)?' g':''),String(i)));b.appendChild(gr);
+  const miss=[];for(let i=1;i<=g.total;i++)if(!g.chunks.has(i))miss.push(i);if(miss.length&&g.chunks.size)b.appendChild(el('p','mut','還缺第 '+miss.slice(0,20).join('、')+(miss.length>20?'…':'')+' 卷'))}
+ if(g.gm)b.appendChild(el('div','msg '+g.gm[0],g.gm[1]));
+ if(g.done)try{showDone(g,b)}catch(e){b.appendChild(el('div','msg err','無法顯示內容：'+e.message))}
+ const act=el('div','row'),rm=el('button','','清除這個包裹');rm.onclick=()=>{G.delete(g.key);dbDel(g.key);(g.urls||[]).forEach(u=>URL.revokeObjectURL(u));b.remove()};act.appendChild(rm);b.appendChild(act)}
+function showDone(g,b){const files=g.flags.includes('B')?unzip(g.bytes):[{name:g.name,data:g.bytes}];const man=files.find(f=>f.name==='manifest.json');
+ if(man){let m;try{m=JSON.parse(new TextDecoder().decode(man.data))}catch(e){m=null}if(m&&m.type==='cms-pack'){showPack(g,b,m,files);return}}
+ const box=el('div');files.forEach(f=>{const it=el('div','it');it.appendChild(el('span','',f.name+'（'+fsz(f.data.length)+'）'));const d=el('button','p','下載');d.onclick=()=>dl(new Blob([f.data],{type:mime(f.name)}),f.name);it.appendChild(d);box.appendChild(it)});
+ if(files.length>1){const all=el('button','p','全部下載（'+files.length+' 個）');all.onclick=async()=>{for(const f of files){dl(new Blob([f.data],{type:mime(f.name)}),f.name);await new Promise(r=>setTimeout(r,400))}};b.appendChild(all)}b.appendChild(box)}
+function showPack(g,b,m,files){const imgs=files.filter(f=>f.name.startsWith('images/'));g.urls=g.urls||[];
+ b.appendChild(el('p','',m.unit+'｜'+m.env+'｜v'+m.ver+'｜打包於 '+m.time));if(m.path)b.appendChild(el('p','mut','後台位置：'+m.path));
+ if(m.changes){const s=el('div','step');s.appendChild(el('h2','','這次改了什麼'));s.appendChild(el('pre','',m.changes));b.appendChild(s)}
+ const s1=el('div','step');s1.appendChild(el('h2','','① 上傳圖片'+(imgs.length?'（'+imgs.length+' 張）':'')));
+ if(imgs.length){s1.appendChild(el('p','mut','上傳到 CMS 的「'+(m.base||'（未設定路徑）')+'」，檔名不要改。'));const all=el('button','p','全部下載');all.onclick=async()=>{for(const f of imgs){dl(new Blob([f.data],{type:mime(f.name)}),f.name.slice(7));await new Promise(r=>setTimeout(r,400))}};s1.appendChild(all);
+  imgs.forEach(f=>{const it=el('div','it');it.appendChild(el('span','',f.name.slice(7)+'（'+fsz(f.data.length)+'）'));const d=el('button','','下載');d.onclick=()=>dl(new Blob([f.data],{type:mime(f.name)}),f.name.slice(7));it.appendChild(d);s1.appendChild(it)})}
+ else s1.appendChild(el('p','mut','這次沒有新圖片要上傳。'));b.appendChild(s1);
+ const s2=el('div','step');s2.appendChild(el('h2','','② 貼上原始碼'));s2.appendChild(el('p','mut','CKEditor 切到「原始碼」模式，全選後貼上取代。'));const ta=el('textarea');ta.value=m.html;ta.rows=8;ta.readOnly=true;
+ const r2=el('div','row'),cp=el('button','p','複製原始碼');cp.onclick=async()=>{const ok=await copy(m.html);if(!ok){ta.select()}say(ok?'原始碼已複製':'請手動 Ctrl+C（已幫你選取）',ok?'ok':'warn')};
+ const pv=el('button','','預覽');const fr=el('iframe','hid');pv.onclick=()=>{if(fr.classList.toggle('hid'))return;let h=m.html;imgs.forEach(f=>{const u=URL.createObjectURL(new Blob([f.data],{type:mime(f.name)}));g.urls.push(u);h=h.split((m.base||'')+f.name.slice(7)).join(u)});fr.srcdoc='<meta charset="utf-8"><style>body{font-family:sans-serif;padding:12px}img{max-width:100%}</style>'+h};
+ r2.append(cp,pv);s2.append(r2,ta,fr);b.appendChild(s2);
+ const s3=el('div','step');s3.appendChild(el('h2','','③ 節點設定'));if(m.checklist&&m.checklist.length)m.checklist.forEach((c,i)=>{const l=el('label','ck'),x=el('input');x.type='checkbox';l.append(x,el('span','',c));s3.appendChild(l)});else s3.appendChild(el('p','mut','這個單元沒有設定清單。'));
+ if(m.admin)s3.appendChild(el('p','mut','後台網址：'+m.admin));if(m.front)s3.appendChild(el('p','mut','上稿後到前台確認：'+m.front));b.appendChild(s3)}
+document.addEventListener('paste',e=>{e.preventDefault();onPaste((e.clipboardData||window.clipboardData).getData('text'));$('pa').value=''});
+$('clr').onclick=()=>{G.forEach(g=>{dbDel(g.key);(g.urls||[]).forEach(u=>URL.revokeObjectURL(u))});G.clear();$('list').innerHTML='';tests.clear();$('tests').classList.add('hid');say('已清空','info')};
+dbOpen().then(dbAll).then(all=>{all.sort((a,b)=>a.t-b.t).forEach(s=>{const g=Object.assign(s,{chunks:new Map(s.chunks||[])});G.set(g.key,g);draw(g)});if(all.length)say('已接回上次收到的 '+all.length+' 個包裹','info')});
+</script></body></html>
