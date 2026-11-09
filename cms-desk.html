@@ -451,7 +451,7 @@ const DEFAULT_PROMPTS=[
  {id:'p-free',name:'自由提問',kind:'text',attach:'',desc:'把這個單元的原始碼和規則帶給 AI，問什麼都可以。如果 AI 回了修改後的原始碼，一樣可以貼回來檢查。',
   body:'以下是一個政府機關網站頁面的資料，請根據它回答我的問題。\n\n我的問題：[[補充]]\n\n'+CTX+'\n\n如果你的回答包含修改後的原始碼，請放在一個 ```html 程式碼區塊，給完整原始碼，{{BASE}} 原樣保留。'}
 ];
-const EXTRA_CHIPS=['照這個單元既有的寫法新增，不要自創新格式','我會給 YouTube 網址，請自己取出影片 ID','只改資料有變動的地方','不確定的都列在 questions，不要猜','用更正式的公文語氣','這次有新增場次'];
+const EXTRA_CHIPS=['照這個單元既有的寫法新增，不要自創新格式','卡片和內頁（彈窗）用同一個 id，編號接續現有最大號，兩邊的姓名、照片、職稱要一致','我會給 YouTube 網址，請自己取出影片 ID','只改資料有變動的地方','不確定的都列在 questions，不要猜','用更正式的公文語氣','這次有新增場次'];
 const PH=['單元','系統','節點位置','規則','原始碼','圖片清單','資料','資料差異','版本差異','設定清單','補充','今天'];
 function defaultGlobal(){return{rules:['人名、職稱、單位、日期、數字一律照資料原文，不可改寫或推測','不要新增 style、font、span 等格式標籤（原始碼本來就有的保留）','不要用全形空白或空段落排版'],prompts:clone(DEFAULT_PROMPTS),seen:DEFAULT_PROMPTS.map(p=>p.id),chunk:1000000,zip:true,fmt:'image/jpeg',maxEdge:1920,q:82}}
 const DEF_ENVS=()=>[{id:'company',name:'公司機'},{id:'test',name:'測試機'},{id:'prod',name:'正式機'}];
@@ -491,6 +491,13 @@ function checkHtml(oldH,newH,src){const out=[],add=(l,m)=>out.push([l,m]);
   if(/\{\{BASE\}\}/.test(oldH)&&!/\{\{BASE\}\}/.test(newH)&&/<img/i.test(newH))add('e','圖片路徑代號 {{BASE}} 不見了，AI 可能改寫了圖片路徑');
   const oldF=refFiles(oldH);refFiles(newH).forEach(f=>{if(!oldF.includes(f)&&!U.images.some(i=>i.file===f))add('w','用到新圖片 '+f+'，但「圖片」裡還沒有這張')});
   oldF.filter(f=>!refFiles(newH).includes(f)).forEach(f=>add('w','圖片 '+f+' 被拿掉了，確認是不是要刪'));
+  {const body=newH.replace(/<!--[\s\S]*?-->/g,'');const ids={};[...body.matchAll(/\sid\s*=\s*["']([^"']+)["']/gi)].forEach(m=>ids[m[1]]=(ids[m[1]]||0)+1);
+   const dup=Object.keys(ids).filter(k=>ids[k]>1);if(dup.length)add('e','id 重複：'+dup.slice(0,8).map(k=>'#'+k).join('、')+'。卡片和內頁／彈窗會對錯人');
+   const hrefs=[...new Set([...body.matchAll(/href\s*=\s*["']#([^"'\s]+)["']/gi)].map(m=>m[1]))];const miss=hrefs.filter(h=>!ids[h]);
+   if(miss.length)add('e','連結指到不存在的 id：'+miss.slice(0,8).map(k=>'#'+k).join('、')+'（如果目標在頁面其他地方可以忽略）');
+   const hidden=[...body.matchAll(/<[a-z][^>]*\bclass\s*=\s*["'][^"']*\b(mfp-hide|hidden|modal|popup)\b[^"']*["'][^>]*>/gi)].map(m=>(m[0].match(/\sid\s*=\s*["']([^"']+)["']/i)||[])[1]).filter(Boolean);
+   const orphan=hidden.filter(i=>!hrefs.includes(i));if(orphan.length)add('w','這些彈窗／內頁沒有任何卡片連過去：'+orphan.slice(0,8).map(k=>'#'+k).join('、'));
+   if(hrefs.length&&!miss.length&&!dup.length)add('o','頁內連結都對得到 id（'+hrefs.length+' 組），沒有重複的 id')}
   const noC=h=>h.replace(/<!--[\s\S]*?-->/g,'').replace(/\s+/g,'');const onlyC=noC(oldH)===noC(newH)&&oldH!==newH;if(onlyC)add('o','這次只改了註解，內容與版面完全沒動');else if(curP().onlyComments&&oldH!==newH)add('e','這個提示詞只能加註解，但 AI 也改了其他內容，請看差異');
   const ot=textOf(oldH),nt=textOf(newH);if(ot.length>200&&nt.length<ot.length*0.7)add('w','文字比原本少了 '+Math.round((1-nt.length/ot.length)*100)+'%，確認 AI 沒有漏掉內容');
   if(src&&src.trim()){const S=norm(src)+'|'+norm(ot);const miss=[];diffText(ot,nt).filter(x=>x.t==='ins').forEach(x=>{x.v.split(/[\s，。；、,;:：|｜／\/()（）「」【】]+/).map(s=>s.trim()).filter(s=>norm(s).length>=2).forEach(s=>{if(!S.includes(norm(s))&&!miss.includes(s))miss.push(s)})});
