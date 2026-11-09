@@ -99,6 +99,10 @@ h3{font-size:14px;margin:0}
 .dg:first-child{border-top:none;padding-top:0}
 .dg .h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
 .cellchg{font-size:12.5px;padding-left:10px;border-left:2px solid var(--line)}
+#fpWrap{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:12px;align-items:start}
+@media (max-width:900px){#fpWrap{grid-template-columns:minmax(0,1fr)}}
+iframe.pv.big{height:600px}
+#fpInfo pre,.snip{white-space:pre-wrap;word-break:break-word;background:var(--code);border:1px solid var(--line);border-radius:7px;padding:8px;margin:0;font:12px/1.55 var(--f-mono);max-height:300px;overflow:auto}
 iframe.pv{width:100%;height:440px;border:1px solid var(--line);border-radius:8px;background:#fff}
 .chunks{display:flex;flex-wrap:wrap;gap:6px}
 .chunks button{font-family:var(--f-mono);font-size:12px;min-width:44px}
@@ -156,6 +160,13 @@ ol.how{margin:0;padding-left:20px;font-size:13px;display:flex;flex-direction:col
           <h3>各環境</h3>
           <p class="hint">圖片路徑前綴：CMS 上傳後會自動改檔名的（例如環境部後台的「內嵌檔案」），一律留空，到收件台再貼上內嵌檔案清單回填。檔名不會變的 CMS 才需要填。</p>
           <div id="uEnvs" class="list"></div>
+          <h3>前台畫面樣式</h3>
+          <p class="hint" id="lkState"></p>
+          <details id="lkWrap"><summary>設定或更新（同一個網站設定一次就好）</summary>
+            <div class="field"><label class="fl" for="lkSite">前台網址 <span>例如 https://www.cca.gov.tw</span></label><input id="lkSite" type="text" class="mono"></div>
+            <div class="field"><label class="fl" for="lkSrc">前台頁面原始碼 <span>在前台打開這個單元所在的頁面，按 Ctrl+U，全選複製後貼上</span></label><textarea id="lkSrc" class="mono" rows="4"></textarea></div>
+            <div class="row"><button id="lkGo" class="primary">設定前台樣式</button></div>
+          </details>
           <div class="field"><label class="fl" for="uRules">這個單元的規則 <span>一行一條，會自動放進 AI 提示詞。AI 改錯的地方，在「AI 改稿」確認時也能一鍵加進來。</span></label><textarea id="uRules" rows="4"></textarea></div>
           <div class="field"><label class="fl" for="uCheck">節點設定清單 <span>一行一項，會放進上稿包，在 VDI 裡照著勾。可以用 AI 從後台截圖產生。</span></label><textarea id="uCheck" rows="4"></textarea></div>
           <div class="field"><label class="fl" for="gRules">所有單元共用的規則 <span>公司的上稿規範</span></label><textarea id="gRules" rows="3"></textarea></div>
@@ -172,6 +183,7 @@ ol.how{margin:0;padding-left:20px;font-size:13px;display:flex;flex-direction:col
         <div class="pb">
           <div id="dSum" class="row"></div>
           <div id="dOut"></div>
+          <div id="dImpact"></div>
           <div class="row"><button id="dCopy">複製差異文字</button><button id="dToAi" class="primary">帶著差異去 AI 改稿</button></div>
         </div>
       </div>
@@ -225,7 +237,7 @@ ol.how{margin:0;padding-left:20px;font-size:13px;display:flex;flex-direction:col
         <h3>原始碼差異（目前版本 → AI 版本）</h3>
         <div class="diff mono" id="aiDiff"></div>
         <details><summary>手動調整 AI 版本（改這裡會重新檢查）</summary><textarea id="aiCand" class="mono" rows="12" spellcheck="false" aria-label="AI 版本原始碼"></textarea></details>
-        <details><summary>預覽</summary><iframe class="pv" id="aiPv" title="預覽"></iframe></details>
+        <details open><summary>前台畫面（黃框是 AI 改到的地方）</summary><iframe class="pv big" id="aiPv" title="前台畫面" sandbox="allow-scripts"></iframe></details>
         <div class="field"><label class="fl" for="aiRule">AI 這次有哪裡做得不對？寫下來，以後提示詞會自動提醒它（可留空）</label>
           <div class="row"><input id="aiRule" type="text" placeholder="例如：職稱不要加粗；照片寬度維持 300" style="flex:1;min-width:220px"><select id="aiRuleScope" style="width:auto"><option value="unit">存到這個單元</option><option value="global">存到所有單元</option></select></div></div>
         <div class="row"><input id="aiLabel" type="text" placeholder="版本說明，例如：依電腦公會 11/07 版更新" style="flex:1;min-width:220px"><button id="btnAccept" class="primary big">確認，存成新版本</button><button id="btnDiscard">放棄</button></div>
@@ -239,14 +251,21 @@ ol.how{margin:0;padding-left:20px;font-size:13px;display:flex;flex-direction:col
 
   <!-- 3 原始碼與版本 -->
   <section id="tab-code" hidden>
+    <div class="panel">
+      <div class="ph"><h2>前台畫面</h2><div class="row"><span id="fpTermsBar" class="row"></span><label class="hint row"><input type="checkbox" id="fpHidden"> 展開隱藏內容（彈窗、摺疊）</label></div></div>
+      <div class="pb">
+        <p class="hint" id="fpLook"></p>
+        <div id="fpWrap"><iframe class="pv big" id="fpF" title="前台畫面" sandbox="allow-scripts"></iframe>
+          <div class="field" id="fpInfo"><p class="hint">點畫面上任何一塊，這裡會顯示它的原始碼和註解，下方的原始碼框也會跳到那一段。</p></div></div>
+      </div>
+    </div>
     <div class="cols w">
       <div class="panel">
         <div class="ph"><h2>目前原始碼</h2><span id="codeState" class="hint"></span></div>
         <div class="pb">
-          <textarea id="code" class="mono" rows="18" spellcheck="false" aria-label="目前原始碼"></textarea>
+          <textarea id="code" class="mono" rows="18" spellcheck="false" wrap="off" aria-label="目前原始碼"></textarea>
           <p class="hint">圖片路徑寫成 <code class="k">{{BASE}}檔名</code>，產出時會換成各環境的路徑。可以直接在這裡改。</p>
-          <div class="row"><input id="codeLabel" type="text" placeholder="版本說明" style="flex:1;min-width:200px"><button id="codeSave" class="primary">存成新版本</button><button id="codePv">預覽</button></div>
-          <iframe class="pv" id="codePvF" title="預覽" hidden></iframe>
+          <div class="row"><input id="codeLabel" type="text" placeholder="版本說明" style="flex:1;min-width:200px"><button id="codeSave" class="primary">存成新版本</button></div>
         </div>
       </div>
       <div class="field" style="gap:14px">
@@ -297,6 +316,8 @@ ol.how{margin:0;padding-left:20px;font-size:13px;display:flex;flex-direction:col
         <div class="ph"><h2 id="sTitle">這次要上的內容</h2></div>
         <div class="pb">
           <div id="sWhat"></div>
+          <details id="sFpWrap"><summary>前台畫面（黃框是這次要上的變更）</summary><iframe class="pv big" id="sFp" title="前台畫面" sandbox="allow-scripts"></iframe></details>
+          <div class="row" id="sApproveRow"></div>
           <div class="row">
             <label class="hint row"><input type="checkbox" id="sAllImg"> 所有圖片都放進包裹（不只還沒上過的）</label>
             <label class="hint row"><input type="checkbox" id="sZip"> 壓縮（原始碼文字會變小，照片幾乎不變）</label>
@@ -313,6 +334,11 @@ ol.how{margin:0;padding-left:20px;font-size:13px;display:flex;flex-direction:col
             <p class="hint">到 VDI 的收件台按 Ctrl+V。全部貼完、上稿完成後，回來按「標記已上稿」。</p>
           </div>
           <div class="row"><button id="sMark">標記已上稿</button><span class="hint" id="sMarkHint"></span></div>
+          <details><summary>記住這個環境的圖片路徑（之後不用再回填）</summary>
+            <p class="hint" id="sPathInfo"></p>
+            <textarea id="sPaths" class="mono" rows="3" placeholder="上傳後在 CMS 框選內嵌檔案清單複製，貼在這裡" aria-label="內嵌檔案清單"></textarea>
+            <div class="row"><button id="sPathGo">記住</button></div>
+          </details>
         </div>
       </div>
       <div class="panel">
@@ -453,11 +479,11 @@ const DEFAULT_PROMPTS=[
 ];
 const EXTRA_CHIPS=['照這個單元既有的寫法新增，不要自創新格式','卡片和內頁（彈窗）用同一個 id，編號接續現有最大號，兩邊的姓名、照片、職稱要一致','我會給 YouTube 網址，請自己取出影片 ID','只改資料有變動的地方','不確定的都列在 questions，不要猜','用更正式的公文語氣','這次有新增場次'];
 const PH=['單元','系統','節點位置','規則','原始碼','圖片清單','資料','資料差異','版本差異','設定清單','補充','今天'];
-function defaultGlobal(){return{rules:['人名、職稱、單位、日期、數字一律照資料原文，不可改寫或推測','不要新增 style、font、span 等格式標籤（原始碼本來就有的保留）','不要用全形空白或空段落排版'],prompts:clone(DEFAULT_PROMPTS),seen:DEFAULT_PROMPTS.map(p=>p.id),chunk:1000000,zip:true,fmt:'image/jpeg',maxEdge:1920,q:82}}
+function defaultGlobal(){return{rules:['人名、職稱、單位、日期、數字一律照資料原文，不可改寫或推測','不要新增 style、font、span 等格式標籤（原始碼本來就有的保留）','不要用全形空白或空段落排版'],prompts:clone(DEFAULT_PROMPTS),seen:DEFAULT_PROMPTS.map(p=>p.id),chunk:1000000,zip:true,fmt:'image/jpeg',maxEdge:1920,q:82,looks:{}}}
 const DEF_ENVS=()=>[{id:'company',name:'公司機'},{id:'test',name:'測試機'},{id:'prod',name:'正式機'}];
 function blankUnit(from){const envs=(from?from.envs:DEF_ENVS()).map(e=>({id:e.id,name:e.name,base:from?e.base:'',admin:'',front:'',sent:null,packed:null}));
   return{id:uid(),imgSpec:from&&from.imgSpec?clone(from.imgSpec):{ratio:'free',w:1200},name:'未命名單元',cms:from?from.cms:'',path:'',tags:'',html:'',versions:[],images:[],rules:from?from.rules.slice():[],checklist:from?from.checklist.slice():[],srcs:[],envs,updated:Date.now()}}
-function normU(u){const b=blankUnit();Object.keys(b).forEach(k=>{if(u[k]===undefined)u[k]=b[k]});u.envs.forEach(e=>{['base','admin','front'].forEach(k=>{if(e[k]===undefined)e[k]=''});if(e.sent===undefined)e.sent=null;if(e.packed===undefined)e.packed=null});return u}
+function normU(u){const b=blankUnit();Object.keys(b).forEach(k=>{if(u[k]===undefined)u[k]=b[k]});u.envs.forEach(e=>{['base','admin','front'].forEach(k=>{if(e[k]===undefined)e[k]=''});if(e.gate===undefined)e.gate=e.id==='prod'||/正式/.test(e.name);if(!e.paths)e.paths={};if(e.sent===undefined)e.sent=null;if(e.packed===undefined)e.packed=null});return u}
 
 /* ================= 單元狀態 ================= */
 const refFiles=h=>{const s=new Set();String(h||'').replace(/\{\{BASE\}\}([^"'\s)<>]+)/g,(m,f)=>{try{s.add(decodeURIComponent(f))}catch(e){s.add(f)}});return [...s]};
@@ -466,7 +492,9 @@ const latestV=()=>U.versions[U.versions.length-1];
 function imgSigMap(files){const o={};files.forEach(f=>{const im=U.images.find(i=>i.file===f);if(im)o[f]=im.sig});return o}
 function neededImgs(e,all){return refFiles(U.html).map(f=>U.images.find(i=>i.file===f)).filter(Boolean).filter(i=>all||!(e.sent&&e.sent.imgs&&e.sent.imgs[i.file]===i.sig))}
 function envState(e){if(!U.html.trim())return{s:'empty'};if(!e.sent)return{s:'none',imgs:neededImgs(e)};const v=verById(e.sent.verId);const htmlChanged=!v||v.html!==U.html;const imgs=neededImgs(e);return{s:htmlChanged||imgs.length?'need':'ok',v,htmlChanged,imgs}}
-const renderFor=(h,e)=>String(h).replace(/\{\{BASE\}\}([^"'\s)<>]+)/g,(m,f)=>{let k=f;try{k=decodeURIComponent(f)}catch(x){}return (e.base||'')+k}).replace(/\{\{BASE\}\}/g,e.base||'');
+const renderFor=(h,e,skip)=>String(h).replace(/\{\{BASE\}\}([^"'\s)<>]+)/g,(m,f)=>{let k=f;try{k=decodeURIComponent(f)}catch(x){}if(e.paths&&e.paths[k]&&!(skip&&skip.has(k)))return e.paths[k];return (e.base||'')+k}).replace(/\{\{BASE\}\}/g,e.base||'');
+function imgUrl(k){const im=U.images.find(i=>i.file===k);if(im)return im.data;const es=[...U.envs].sort((a,b)=>(b.gate?1:0)-(a.gate?1:0));for(const e of es){if(e.paths&&e.paths[k])return e.paths[k]}const e=U.envs.find(x=>x.base);return (e?e.base:'')+k}
+const resolveImgs=h=>String(h).replace(/\{\{BASE\}\}([^"'\s)<>]+)/g,(m,f)=>{let k=f;try{k=decodeURIComponent(f)}catch(x){}return imgUrl(k)});
 function previewHtml(h){let out=String(h).replace(/\{\{BASE\}\}([^"'\s)<>]+)/g,(m,f)=>{let k=f;try{k=decodeURIComponent(f)}catch(e){}const im=U.images.find(i=>i.file===k);return im?im.data:((U.envs.find(e=>e.base)||{}).base||'')+f});
   return '<!doctype html><meta charset="utf-8"><style>body{font-family:"Microsoft JhengHei",sans-serif;padding:16px;line-height:1.7;color:#222;background:#fff}img{max-width:100%}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:4px 8px}</style>'+out}
 function textOf(h){const s=String(h||'').replace(/<!--[\s\S]*?-->/g,'').replace(/<(br|\/p|\/li|\/h\d|\/td|\/th|\/tr|\/div|\/caption)\b[^>]*>/gi,'\n').replace(/<[^>]+>/g,' ');const t=document.createElement('textarea');t.innerHTML=s;return t.value.replace(/[ \t ]+/g,' ').replace(/\s*\n\s*/g,'\n').trim()}
@@ -510,7 +538,7 @@ function checksHtml(list){const icon={e:'✗',w:'!',o:'✓',i:'·'};const n={e:0
 
 /* ================= 分頁 ================= */
 let curTab='ai',curEnv='test';
-function showTab(t){curTab=t;$$('nav.steps button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));['unit','data','ai','code','img','ship'].forEach(n=>$('#tab-'+n).hidden=n!==t);
+function showTab(t){curTab=t;{const n=document.querySelector('nav.steps');if(n&&n.getBoundingClientRect().top<0)n.scrollIntoView({block:'start'})}$$('nav.steps button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));['unit','data','ai','code','img','ship'].forEach(n=>$('#tab-'+n).hidden=n!==t);
   ({unit:renderUnit,data:renderData,ai:renderAI,code:renderCode,img:renderImgs,ship:renderShip})[t]()}
 $$('nav.steps button').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
 function refreshBadge(){const n=U.envs.filter(e=>envState(e).s==='need').length;const b=$('#shipBadge');b.hidden=!n;b.textContent=n}
@@ -518,7 +546,7 @@ function refreshBadge(){const n=U.envs.filter(e=>envState(e).s==='need').length;
 /* ================= 0 單元 ================= */
 function renderUnitSel(){const s=$('#unitSel');s.innerHTML=IDX.map(x=>`<option value="${esc(x.id)}">${esc(x.name||'未命名')}</option>`).join('');s.value=U?U.id:'';refreshBadge()}
 $('#unitSel').addEventListener('change',e=>openUnit(e.target.value));
-async function openUnit(id){if(dirty)await saveNow();const u=await store.get('unit:'+id);if(!u){toast('找不到這個單元');return}U=normU(u);aiState=null;packed=null;await store.set('current',id);renderUnitSel();showTab(curTab)}
+async function openUnit(id){if(dirty)await saveNow();const u=await store.get('unit:'+id);if(!u){toast('找不到這個單元');return}U=normU(u);aiState=null;packed=null;if(curTab!=='code')fpTerms=[];await store.set('current',id);renderUnitSel();showTab(curTab)}
 async function newUnit(u,msg){if(dirty)await saveNow();U=normU(u);packed=null;await saveNow();aiState=null;if(msg)toast(msg);showTab('unit')}
 function renderUnit(){const q=$('#uSearch').value.trim().toLowerCase().split(/\s+/).filter(Boolean);const list=IDX.filter(x=>q.every(t=>x.search.includes(t)));
   const lab={none:['未上稿','mute'],need:['需更新','warn'],ok:['最新','ok'],empty:['沒有內容','mute']};
@@ -526,8 +554,10 @@ function renderUnit(){const q=$('#uSearch').value.trim().toLowerCase().split(/\s
   $$('[data-open]').forEach(b=>b.addEventListener('click',()=>openUnit(b.dataset.open)));
   $('#uName').value=U.name;$('#uCms').value=U.cms;$('#uTags').value=U.tags;$('#uPath').value=U.path;$('#uRules').value=U.rules.join('\n');$('#uCheck').value=U.checklist.join('\n');$('#gRules').value=G.rules.join('\n');
   $('#uEnvs').innerHTML=U.envs.map((e,i)=>`<div class="li" style="align-items:stretch"><div class="field" style="flex:1"><div class="row"><input type="text" data-ef="name" data-i="${i}" value="${esc(e.name)}" aria-label="環境名稱" style="width:120px;font-weight:700"><input type="text" data-ef="base" data-i="${i}" value="${esc(e.base)}" placeholder="圖片路徑前綴，例如 /upload/cop31/" aria-label="${esc(e.name)} 圖片路徑前綴" class="mono" style="flex:1;min-width:180px"></div>
-    <div class="row"><input type="text" data-ef="admin" data-i="${i}" value="${esc(e.admin)}" placeholder="後台編輯網址（可留空）" aria-label="${esc(e.name)} 後台網址" style="flex:1;min-width:180px"><input type="text" data-ef="front" data-i="${i}" value="${esc(e.front)}" placeholder="前台網址（可留空）" aria-label="${esc(e.name)} 前台網址" style="flex:1;min-width:180px"></div></div></div>`).join('');
-  $$('[data-ef]').forEach(el=>el.addEventListener('input',()=>{U.envs[+el.dataset.i][el.dataset.ef]=el.value;saveU()}))}
+    <div class="row"><input type="text" data-ef="admin" data-i="${i}" value="${esc(e.admin)}" placeholder="後台編輯網址（可留空）" aria-label="${esc(e.name)} 後台網址" style="flex:1;min-width:180px"><input type="text" data-ef="front" data-i="${i}" value="${esc(e.front)}" placeholder="前台網址（可留空）" aria-label="${esc(e.name)} 前台網址" style="flex:1;min-width:180px"></div>
+    <label class="hint row"><input type="checkbox" data-gate="${i}" ${e.gate?'checked':''}> 只能上承辦確認過的版本</label></div></div>`).join('');
+  $$('[data-ef]').forEach(el=>el.addEventListener('input',()=>{U.envs[+el.dataset.i][el.dataset.ef]=el.value;saveU()}));
+  $$('[data-gate]').forEach(el=>el.addEventListener('change',()=>{U.envs[+el.dataset.gate].gate=el.checked;saveU()}));renderLookState()}
 $('#uSearch').addEventListener('input',renderUnit);
 [['#uName','name'],['#uCms','cms'],['#uTags','tags'],['#uPath','path']].forEach(([s,k])=>$(s).addEventListener('input',e=>{U[k]=e.target.value;saveU()}));
 $('#uRules').addEventListener('input',e=>{U.rules=e.target.value.split('\n').map(s=>s.trim()).filter(Boolean);saveU()});
@@ -562,8 +592,8 @@ function diffBook(A,B){const res=[];const names=[...Object.keys(B),...Object.key
     const ops=diffArr(a.map((r,i)=>({r,i,s:r.join('\t')})),b.map((r,i)=>({r,i,s:r.join('\t')})),(x,y)=>x.s===y.s);
     for(let i=0;i<ops.length;i++){if(ops[i][0]==='eq')continue;const dels=[],inss=[];while(i<ops.length&&ops[i][0]!=='eq'){if(ops[i][0]==='del')dels.push(ops[i][1]);else inss.push(ops[i][2]);i++}i--;
       const k=Math.min(dels.length,inss.length);for(let j=0;j<k;j++){const x=dels[j],y=inss[j],cells=[];const L=Math.max(x.r.length,y.r.length);for(let c=0;c<L;c++){const f=x.r[c]||'',t=y.r[c]||'';if(f!==t)cells.push({col:colL(c),head:head(c),from:f,to:t})}
-        items.push({k:'mod',lab:'第 '+(y.i+1)+' 列（'+rowLabel(y.r)+'）',cells})}
-      dels.slice(k).forEach(x=>items.push({k:'del',lab:'刪除第 '+(x.i+1)+' 列（'+rowLabel(x.r)+'）',cells:[]}));inss.slice(k).forEach(y=>items.push({k:'add',lab:'新增第 '+(y.i+1)+' 列（'+rowLabel(y.r)+'）',cells:y.r.map((v,c)=>v?{col:colL(c),head:head(c),from:'',to:v}:null).filter(Boolean)}))}
+        items.push({k:'mod',lab:'第 '+(y.i+1)+' 列（'+rowLabel(y.r)+'）',cells,old:x.r,neu:y.r})}
+      dels.slice(k).forEach(x=>items.push({k:'del',lab:'刪除第 '+(x.i+1)+' 列（'+rowLabel(x.r)+'）',cells:[],old:x.r}));inss.slice(k).forEach(y=>items.push({k:'add',lab:'新增第 '+(y.i+1)+' 列（'+rowLabel(y.r)+'）',cells:y.r.map((v,c)=>v?{col:colL(c),head:head(c),from:'',to:v}:null).filter(Boolean)}))}
     if(items.length)res.push({sheet:n,items})});return res}
 function diffBookText(d){if(!d)return '（沒有可比對的上一版資料）';if(!d.length)return '（兩版資料內容相同）';const k={add:'新增',del:'刪除',mod:'修改'};
   return d.map(s=>'## 工作表：'+s.sheet+'\n'+s.items.map(it=>'- ['+k[it.k]+'] '+it.lab+(it.cells.length?'\n'+it.cells.map(c=>'    '+c.col+' 欄'+(c.head?'（'+c.head+'）':'')+'：'+(it.k==='mod'?'「'+(c.from||'空白')+'」→「'+(c.to||'空白')+'」':'「'+c.to+'」')).join('\n'):'')).join('\n')).join('\n\n')}
@@ -578,12 +608,12 @@ function renderData(){$('#xlsxState').textContent=typeof XLSX==='undefined'?'讀
   $('#dSnaps').innerHTML=U.srcs.slice().reverse().map(s=>{const rows=Object.values(s.sheets).reduce((t,r)=>t+r.length,0);return `<div class="li"><div class="t"><b>${esc(s.name)}</b><span class="s">${fmtTime(s.time)}｜${Object.keys(s.sheets).length} 個工作表、${rows} 列</span></div><div class="row"><button class="mini" data-sview="${esc(s.id)}">看內容</button><button class="mini danger" data-sdel="${esc(s.id)}">刪除</button></div></div>`}).join('')||'<p class="hint">還沒有資料。</p>';
   $$('[data-sview]').forEach(b=>b.addEventListener('click',()=>{const s=snapById(b.dataset.sview);modal(s.name,Object.keys(s.sheets).map(n=>'<h3>'+esc(n)+'</h3><div class="tw"><table><tbody>'+s.sheets[n].slice(0,300).map((r,i)=>'<tr><th>'+(i+1)+'</th>'+r.map(c=>'<td>'+esc(c)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>').join(''))}));
   $$('[data-sdel]').forEach(b=>armed(b,()=>{U.srcs=U.srcs.filter(s=>s.id!==b.dataset.sdel);saveU();renderData()}));
-  const d=curDataDiff(),box=$('#dOut');
+  const d=curDataDiff(),box=$('#dOut');$('#dImpact').innerHTML='';
   if(!d){$('#dSum').innerHTML='';box.innerHTML='<p class="hint">'+(n<2?'加入兩版資料後，這裡會列出差異。':'請選兩個不同的版本。')+'</p>';return}
   const cnt={add:0,del:0,mod:0};d.forEach(s=>s.items.forEach(i=>cnt[i.k]++));
   $('#dSum').innerHTML=d.length?'<span class="chip warn">修改 '+cnt.mod+'</span><span class="chip ok">新增 '+cnt.add+'</span><span class="chip bad">刪除 '+cnt.del+'</span>':'<span class="chip ok">兩版內容相同</span>';
   const kl={add:['新增','ok'],del:['刪除','bad'],mod:['修改','warn']};
-  box.innerHTML=d.map(s=>'<div class="dg"><h3>工作表：'+esc(s.sheet)+'</h3>'+s.items.map(it=>'<div class="field"><div class="h row"><span class="chip '+kl[it.k][1]+'">'+kl[it.k][0]+'</span><span>'+esc(it.lab)+'</span></div>'+it.cells.map(c=>'<div class="cellchg">'+esc(c.col)+' 欄'+(c.head?'（'+esc(c.head)+'）':'')+'：'+(it.k==='mod'?'<span class="diff" style="display:inline;padding:1px 4px">'+diffHtml(c.from,c.to)+'</span>':esc(c.to))+'</div>').join('')+'</div>').join('')+'</div>').join('')}
+  box.innerHTML=d.map(s=>'<div class="dg"><h3>工作表：'+esc(s.sheet)+'</h3>'+s.items.map(it=>'<div class="field"><div class="h row"><span class="chip '+kl[it.k][1]+'">'+kl[it.k][0]+'</span><span>'+esc(it.lab)+'</span></div>'+it.cells.map(c=>'<div class="cellchg">'+esc(c.col)+' 欄'+(c.head?'（'+esc(c.head)+'）':'')+'：'+(it.k==='mod'?'<span class="diff" style="display:inline;padding:1px 4px">'+diffHtml(c.from,c.to)+'</span>':esc(c.to))+'</div>').join('')+'</div>').join('')+'</div>').join('');if(d.length)renderImpact(d)}
 ['#dA','#dB'].forEach(s=>$(s).addEventListener('change',renderData));
 async function addSnap(name,sheets,time){U.srcs.push({id:uid(),name,time:time||Date.now(),sheets});if(U.srcs.length>10)U.srcs.shift();saveU()}
 async function addFiles(files){files=[...files].sort((a,b)=>a.lastModified-b.lastModified);let n=0;for(const f of files){try{const sh=await readBook(f);await addSnap(f.name.replace(/\.[^.]+$/,''),sh,f.lastModified);n++}catch(e){toast(e.message||'讀不到這個檔案');}}
@@ -639,7 +669,7 @@ function showResult(){if(!aiState)return;const cand=aiState.cand;const s=U.srcs[
   $('#aiVerdict').innerHTML=ch.n.e?'<span class="chip bad">'+ch.n.e+' 個問題要處理</span>':ch.n.w?'<span class="chip warn">'+ch.n.w+' 個地方要看一下</span>':'<span class="chip ok">檢查通過</span>';
   const j=aiState.json||{},chg=Array.isArray(j.changes)?j.changes:[],qs=Array.isArray(j.questions)?j.questions.filter(Boolean):[];
   $('#aiNotes').innerHTML=(chg.length?'<ul class="checks">'+chg.map(c=>'<li><span>·</span><span>'+esc(c.where||'')+'：'+esc(c.before||'（無）')+' → '+esc(c.after||'（刪除）')+(c.source?'<br><span class="hint">依據：'+esc(c.source)+'</span>':'')+'</span></li>').join('')+'</ul>':'<p class="hint">AI 沒有附上修改清單。</p>')+(qs.length?'<h3 style="margin-top:8px">AI 要你確認</h3><ul class="checks">'+qs.map(q=>'<li class="w"><span>?</span><span>'+esc(typeof q==='string'?q:JSON.stringify(q))+'</span></li>').join('')+'</ul>':'');
-  $('#aiDiff').innerHTML=aiState.base===cand?'<span class="gap">和目前原始碼完全相同</span>':diffLinesHtml(aiState.base,cand);$('#aiPv').srcdoc=previewHtml(cand);$('#aiResult').hidden=false}
+  $('#aiDiff').innerHTML=aiState.base===cand?'<span class="gap">和目前原始碼完全相同</span>':diffLinesHtml(aiState.base,cand);setFrame('#aiPv',frontDoc(cand,{old:aiState.base}));$('#aiResult').hidden=false}
 let candT;$('#aiCand').addEventListener('input',e=>{if(!aiState)return;aiState.cand=e.target.value;clearTimeout(candT);candT=setTimeout(showResult,400)});
 $('#btnAccept').addEventListener('click',()=>{if(!aiState)return;const rule=$('#aiRule').value.trim();if(rule){if($('#aiRuleScope').value==='global'){G.rules.push(rule);saveG()}else U.rules.push(rule)}
   if(U.html!==aiState.base)toast('注意：原始碼在這段期間被改過，仍以 AI 版本為準');U.html=aiState.cand;const v=snapshot($('#aiLabel').value.trim()||'AI：'+curP().name);aiState=null;$('#aiResult').hidden=true;$('#aiReply').value='';saveU();refreshBadge();toast('已存成 v'+v.no+(rule?'，規則已記下':'')+'。到「上稿到環境」打包')});
@@ -661,21 +691,21 @@ $('#pEditBtn').addEventListener('click',()=>{const p=curP();modal('編輯提示�
 function snapshot(label){const last=latestV();if(last&&last.html===U.html&&JSON.stringify(last.imgs)===JSON.stringify(imgSigMap(refFiles(U.html))))return last;
   const v={id:uid(),no:(last?last.no:0)+1,time:Date.now(),label:label||'',html:U.html,imgs:imgSigMap(refFiles(U.html))};U.versions.push(v);if(U.versions.length>40)U.versions.splice(0,U.versions.length-40);return v}
 let vCmp=null;
-function renderCode(){if(document.activeElement!==$('#code'))$('#code').value=U.html;const l=latestV();$('#codeState').textContent=l?(l.html===U.html?'與 v'+l.no+' 相同':'有修改還沒存成版本'):'還沒有版本';
+function renderCode(){if(document.activeElement!==$('#code'))$('#code').value=U.html;renderFront();const l=latestV();$('#codeState').textContent=l?(l.html===U.html?'與 v'+l.no+' 相同':'有修改還沒存成版本'):'還沒有版本';
   $('#impEnv').innerHTML=U.envs.map(e=>`<option value="${esc(e.id)}">${esc(e.name)}</option>`).join('');if(!$('#impEnv').dataset.v)$('#impEnv').value=U.envs[0].id;
-  $('#vList').innerHTML=U.versions.slice().reverse().map(v=>{const on=U.envs.filter(e=>e.sent&&e.sent.verId===v.id).map(e=>'<span class="chip ok">'+esc(e.name)+'</span>').join('');return `<div class="li"><div class="t"><b>v${v.no}　<span class="s">${fmtTime(v.time)}</span></b><span class="s">${esc(v.label)}</span><div class="row">${on}</div></div><div class="row"><button class="mini" data-vc="${esc(v.id)}">和目前比較</button><button class="mini" data-vr="${esc(v.id)}">還原成這版</button></div></div>`}).join('')||'<p class="hint">還沒有版本。</p>';
+  $('#vList').innerHTML=U.versions.slice().reverse().map(v=>{const on=U.envs.filter(e=>e.sent&&e.sent.verId===v.id).map(e=>'<span class="chip ok">'+esc(e.name)+'</span>').join('');return `<div class="li"><div class="t"><b>v${v.no}　<span class="s">${fmtTime(v.time)}</span></b><span class="s">${esc(v.label)}</span><div class="row">${on}</div></div><div class="row">${v.approved?'<span class="chip ok">承辦已確認 '+fmtTime(v.approved.at)+'</span>':''}<button class="mini" data-vap="${esc(v.id)}">${v.approved?'取消確認':'承辦已確認'}</button><button class="mini" data-vc="${esc(v.id)}">和目前比較</button><button class="mini" data-vr="${esc(v.id)}">還原成這版</button></div></div>`}).join('')||'<p class="hint">還沒有版本。</p>';
+  $$('[data-vap]').forEach(b=>b.addEventListener('click',()=>{const v=verById(b.dataset.vap);v.approved=v.approved?null:{at:Date.now()};saveU();renderCode();toast(v.approved?'v'+v.no+' 標記為承辦已確認':'已取消 v'+v.no+' 的確認')}));
   $$('[data-vc]').forEach(b=>b.addEventListener('click',()=>{const v=verById(b.dataset.vc);$('#vDiff').innerHTML='<h3>v'+v.no+' → 目前</h3><div class="diff mono">'+diffLinesHtml(v.html,U.html)+'</div>'}));
   $$('[data-vr]').forEach(b=>armed(b,()=>{const v=verById(b.dataset.vr);U.html=v.html;saveU();renderCode();refreshBadge();toast('已還原成 v'+v.no+' 的內容（還沒存成新版本）')}))}
-$('#code').addEventListener('input',e=>{U.html=e.target.value;saveU();const l=latestV();$('#codeState').textContent=l&&l.html===U.html?'與 v'+l.no+' 相同':'有修改還沒存成版本';refreshBadge()});
+$('#code').addEventListener('input',e=>{U.html=e.target.value;saveU();clearTimeout(fpT);fpT=setTimeout(renderFront,700);const l=latestV();$('#codeState').textContent=l&&l.html===U.html?'與 v'+l.no+' 相同':'有修改還沒存成版本';refreshBadge()});
 $('#codeSave').addEventListener('click',()=>{const n=U.versions.length;const v=snapshot($('#codeLabel').value.trim()||'手動修改');$('#codeLabel').value='';saveU();renderCode();toast(U.versions.length>n?'已存成 v'+v.no:'內容和 v'+v.no+' 相同，不用另存')});
-$('#codePv').addEventListener('click',()=>{const f=$('#codePvF');f.hidden=!f.hidden;if(!f.hidden)f.srcdoc=previewHtml(U.html)});
 $('#impEnv').addEventListener('change',e=>e.target.dataset.v='1');
 const IEXT='jpe?g|png|gif|webp|svg|tiff?|odg|bmp';
 function parseMap(t){const re=new RegExp('((?:https?:\\/\\/[^\\s"\'<>]+?|\\/[^\\s"\'<>]*?)\\.(?:'+IEXT+'))(?![\\w])|([^\\n\\t\\/"\'<>]+?\\.(?:'+IEXT+'))(?![\\w])','gi');const pairs=[];let pend=null,x;while((x=re.exec(t))){if(x[1]){if(pend){pairs.push([pend,x[1]]);pend=null}}else pend=x[2].trim()}return pairs}
 const tokName=n=>'{{BASE}}'+n.replace(/[\s"'<>()]/g,c=>encodeURIComponent(c));
 $('#impGo').addEventListener('click',()=>{let raw=$('#impCode').value;if(!raw.trim()){toast('先貼上 CKEditor 的原始碼');return}const env=U.envs.find(e=>e.id===$('#impEnv').value);let note='';
   const pairs=parseMap($('#impMap').value);let mapped=0;
-  pairs.forEach(([nm,p])=>{['"',"'"].forEach(q=>{const k=q+p+q;if(raw.includes(k)){raw=raw.split(k).join(q+tokName(nm)+q);mapped++}})});
+  pairs.forEach(([nm,p])=>{env.paths[nm]=p;['"',"'"].forEach(q=>{const k=q+p+q;if(raw.includes(k)){raw=raw.split(k).join(q+tokName(nm)+q);mapped++}})});
   if(pairs.length)note='，'+mapped+' 張圖片換回原檔名';
   else{U.envs.map(e=>e.base).filter(Boolean).sort((a,b)=>b.length-a.length).forEach(b=>{raw=raw.split(b).join('{{BASE}}')});
     const srcs=[...raw.matchAll(/<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/gi)].map(m=>m[1]).filter(s=>!s.startsWith('{{BASE}}')&&!s.startsWith('data:'));
@@ -756,24 +786,41 @@ function renderShip(){if(!U.envs.some(e=>e.id===curEnv))curEnv=U.envs[0].id;cons
     h+='<h3>節點設定清單</h3>'+(U.checklist.length?'<p class="hint">'+U.checklist.map(esc).join('｜')+'</p>':'<p class="hint">沒有設定清單（可在「單元設定」填，或用 AI 從截圖產生）。</p>');
     if(!e.base&&refFiles(U.html).length)h+='<ul class="checks"><li class="i"><span>·</span><span>'+esc(e.name)+' 用回填模式：包裹裡的原始碼先放檔名，在收件台貼上 CMS 的內嵌檔案清單後，自動換成真正的路徑（以前上傳過的圖也會一起配對）。</span></li></ul>';
     const cl=checkHtml(U.html,U.html,'').filter(c=>c[0]==='e');if(cl.length)h+='<ul class="checks">'+cl.map(c=>'<li class="e"><span>✗</span><span>'+esc(c[1])+'</span></li>').join('')+'</ul>'}
-  $('#sWhat').innerHTML=h;$('#sChunk').value=String(G.chunk);$('#sZip').checked=!!G.zip;
+  $('#sWhat').innerHTML=h;$('#sFpWrap').hidden=st.s==='empty';if($('#sFpWrap').open)setFrame('#sFp',frontDoc(U.html,{old:e.sent&&st.v?st.v.html:null}));
+  const ap=lastApproved();const ar=$('#sApproveRow');ar.innerHTML='';
+  if(e.gate){ar.innerHTML='<span class="chip '+(ap?'ok':'warn')+'">'+(ap?'會打包承辦確認的 v'+ap.no+(ap.html===U.html?'（和目前內容相同）':'（目前內容有改過，打包時會列出差異）'):'還沒有承辦確認的版本，無法打包')+'</span>'}
+  else if(e.sent&&st.v){const b=document.createElement('button');b.textContent=st.v.approved?'v'+st.v.no+' 已由承辦確認':'承辦確認了 '+e.name+' 上的 v'+st.v.no;b.disabled=!!st.v.approved;b.onclick=()=>{st.v.approved={at:Date.now()};saveU();renderShip();toast('v'+st.v.no+' 標記為承辦已確認，正式機會打包這一版')};ar.appendChild(b)}
+  $('#sPathInfo').textContent='這個環境已記住 '+Object.keys(e.paths||{}).length+' 張圖片的路徑。記住後，打包時這些圖直接用真正的路徑，只有新圖片或換過的圖片需要在收件台回填。';
+  $('#sChunk').value=String(G.chunk);$('#sZip').checked=!!G.zip;
   $('#sPacked').hidden=!packed;if(packed)drawChunks();
   $('#sMarkHint').textContent=packed?'上完後按這裡，記下 '+e.name+' 現在是 v'+packed.ver+'。':'不用打包也可以直接標記（例如手動上稿完成時）。';
   $('#rSize').textContent=fsz(receiverText().length);refreshBadge()}
 $('#sAllImg').addEventListener('change',()=>{packed=null;renderShip()});
+$('#sFpWrap').addEventListener('toggle',()=>{if($('#sFpWrap').open)renderShip()});
+$('#sPathGo').addEventListener('click',()=>{const e=U.envs.find(x=>x.id===curEnv);const pairs=parseMap($('#sPaths').value);if(!pairs.length){toast('找不到路徑，請確認有把「名稱/路徑」欄一起框選複製');return}pairs.forEach(([n,p])=>e.paths[n]=p);$('#sPaths').value='';saveU();renderShip();toast('已記住 '+pairs.length+' 張圖片在 '+e.name+' 的路徑')});
 $('#sZip').addEventListener('change',e=>{G.zip=e.target.checked;saveG();packed=null;renderShip()});
 $('#sChunk').addEventListener('change',e=>{G.chunk=+e.target.value;saveG();packed=null;renderShip()});
-$('#sCopyHtml').addEventListener('click',()=>{const e=U.envs.find(x=>x.id===curEnv);copyText(renderFor(U.html,e))});
+$('#sCopyHtml').addEventListener('click',()=>{const e=U.envs.find(x=>x.id===curEnv);copyText(renderFor(U.html,e,new Set(neededImgs(e).map(i=>i.file))))});
 const fnSafe=s=>String(s).replace(/[\\/:*?"<>|\s]+/g,'_').slice(0,60);
-$('#sPack').addEventListener('click',async()=>{const e=U.envs.find(x=>x.id===curEnv);if(!U.html.trim()){toast('沒有原始碼可以打包');return}const btn=$('#sPack');btn.disabled=true;btn.textContent='打包中…';
-  try{const v=snapshot('打包到 '+e.name);saveU();const st=envState(e),imgs=neededImgs(e,$('#sAllImg').checked);const html=renderFor(U.html,e);
-    const changes=e.sent&&st.v?(st.htmlChanged?changeLines(renderFor(st.v.html,e),html,40).join('\n'):'原始碼沒有變更，只需要上傳圖片'):'';
-    const d=new Date(),man={type:'cms-pack',v:1,unit:U.name,cms:U.cms,path:U.path,env:e.name,base:e.base,ver:v.no,time:d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes()),html,changes,images:imgs.map(i=>i.file),refs:refFiles(U.html),checklist:U.checklist,admin:e.admin,front:e.front};
+function lastApproved(){return [...U.versions].reverse().find(v=>v.approved)||null}
+$('#sPack').addEventListener('click',async()=>{const e=U.envs.find(x=>x.id===curEnv);if(!U.html.trim()){toast('沒有原始碼可以打包');return}
+  if(e.gate){const ap=lastApproved();if(!ap){toast(e.name+' 只能上承辦確認過的版本。先上測試機，承辦確認後按「承辦確認了…」');return}
+    if(ap.html!==U.html){modal('目前內容和承辦確認的版本不同','<p class="hint">'+esc(e.name)+' 只能上承辦確認過的版本。下面是 v'+ap.no+'（承辦確認）到目前內容的差異。這些修改要先上測試機給承辦確認，才能上 '+esc(e.name)+'。</p><div class="diff mono">'+diffLinesHtml(ap.html,U.html)+'</div><div class="row"><button class="primary" id="gPack">打包承辦確認的 v'+ap.no+'</button></div>',b=>{b.querySelector('#gPack').onclick=()=>{$('#modal').hidden=true;doPack(e,ap)}});return}
+    return doPack(e,ap)}
+  const v=snapshot('打包到 '+e.name);saveU();doPack(e,v)});
+async function doPack(e,v){const btn=$('#sPack');btn.disabled=true;btn.textContent='打包中…';
+  try{const src=v.html,sv=e.sent&&verById(e.sent.verId),all=$('#sAllImg').checked;
+    const imgs=refFiles(src).map(f=>U.images.find(i=>i.file===f)).filter(Boolean).filter(i=>all||!(e.sent&&e.sent.imgs&&e.sent.imgs[i.file]===i.sig));
+    const changedAfter=imgs.filter(i=>v.imgs&&v.imgs[i.file]&&v.imgs[i.file]!==i.sig).map(i=>i.file);if(changedAfter.length)toast('注意：'+changedAfter.join('、')+' 在 v'+v.no+' 之後換過圖，會打包目前的圖');
+    const skip=new Set(imgs.map(i=>i.file));const html=renderFor(src,e,skip);
+    const changes=sv?(sv.html!==src?changeLines(renderFor(sv.html,e),html,40).join('\n'):'原始碼沒有變更，只需要上傳圖片'):'';
+    const refs=refFiles(src).filter(f=>skip.has(f)||!(e.paths&&e.paths[f]));
+    const d=new Date(),man={type:'cms-pack',v:1,unit:U.name,cms:U.cms,path:U.path,env:e.name,base:e.base,ver:v.no,time:d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes()),html,changes,images:imgs.map(i=>i.file),refs,checklist:U.checklist,admin:e.admin,front:e.front};
     const enc=new TextEncoder();const zip=buildZip([{name:'manifest.json',data:enc.encode(JSON.stringify(man))},{name:'原始碼.html',data:enc.encode(html)},...imgs.map(i=>({name:'images/'+i.file,data:dataUrlBytes(i.data)}))]);
     let payload=zip,flags='B';if(G.zip){const z=await deflate(zip);if(z&&z.length<zip.length*0.9){payload=z;flags='BZ'}}
     const h=await sha(payload);const name=fnSafe(U.name)+'_'+fnSafe(e.name)+'_v'+v.no+'.zip';const chunks=makeChunks(payload,name,flags,+G.chunk,h);
     packed={env:e.id,ver:v.no,verId:v.id,imgs:imgSigMap(imgs.map(i=>i.file)),chunks,next:0,done:new Set(),size:payload.length,raw:zip.length,nimg:imgs.length};e.packed={verId:v.id,imgs:packed.imgs,at:Date.now()};saveU();renderShip();
-    toast('已打包：'+chunks.length+' 卷')}catch(err){toast('打包失敗：'+(err.message||err))}btn.disabled=false;btn.textContent='打包上稿包'});
+    toast('已打包 v'+v.no+'：'+chunks.length+' 卷')}catch(err){toast('打包失敗：'+(err.message||err))}btn.disabled=false;btn.textContent='打包上稿包'}
 function drawChunks(){const p=packed;$('#sPackInfo').textContent='v'+p.ver+'｜'+p.nimg+' 張圖片｜'+fsz(p.size)+(p.size<p.raw?'（壓縮前 '+fsz(p.raw)+'）':'')+'｜共 '+p.chunks.length+' 卷';
   $('#sNext').textContent=p.next<p.chunks.length?'複製下一卷（第 '+(p.next+1)+' / '+p.chunks.length+' 卷）':'全部複製過了（再按從第 1 卷開始）';
   $('#sChunks').innerHTML=p.chunks.map((c,i)=>`<button data-ck="${i}" class="${p.done.has(i)?'done':''}" aria-label="第 ${i+1} 卷">${i+1}</button>`).join('');$$('[data-ck]').forEach(b=>b.addEventListener('click',()=>copyChunk(+b.dataset.ck)))}
@@ -781,13 +828,83 @@ async function copyChunk(i){const ok=await copyText(packed.chunks[i],true);if(ok
 $('#sNext').addEventListener('click',()=>{if(!packed)return;if(packed.next>=packed.chunks.length)packed.next=0;copyChunk(packed.next)});
 $('#sMark').addEventListener('click',()=>{const e=U.envs.find(x=>x.id===curEnv);let verId,imgs;
   if(packed&&packed.env===e.id){verId=packed.verId;imgs=Object.assign({},e.sent?e.sent.imgs:{},packed.imgs)}else{const v=snapshot('上稿到 '+e.name);verId=v.id;imgs=imgSigMap(refFiles(U.html))}
-  e.sent={verId,at:Date.now(),imgs};packed=null;saveU();renderShip();toast(e.name+' 已標記為 v'+verById(verId).no)});
+  if(packed&&packed.env===e.id)Object.keys(packed.imgs).forEach(f=>{if(e.paths)delete e.paths[f]});e.sent={verId,at:Date.now(),imgs};packed=null;saveU();renderShip();toast(e.name+' 已標記為 v'+verById(verId).no)});
 $('#sTest').addEventListener('click',()=>{const sizes=[200000,500000,1000000,2000000,4000000,8000000];modal('剪貼簿容量測試','<p class="hint">從小到大，一個一個複製，貼到 VDI 的收件台。收件台會顯示「完整收到」或「不完整」。最後一個完整的大小，就是「每卷大小」可以用的上限。</p><div class="chunks" id="ctl">'+sizes.map(s=>`<button data-cs="${s}">${s/1e6} MB</button>`).join('')+'</div>',b=>{
   b.querySelectorAll('[data-cs]').forEach(x=>x.onclick=async()=>{const n=+x.dataset.cs,bytes=Math.floor(n/4)*3,u=new Uint8Array(bytes);let s=7;for(let i=0;i<bytes;i++){s=(s*1103515245+12345)&0x7fffffff;u[i]=s>>16}
     const h=await sha(u);const c=makeChunks(u,'容量測試 '+(n/1e6)+' MB','T',0,h)[0];const ok=await copyText(c,true);x.classList.toggle('done',ok);toast(ok?'已複製 '+(n/1e6)+' MB 測試包，到收件台貼上':'這台電腦的瀏覽器複製不了這麼大，上限就在前一級')})})});
 function receiverText(){try{return new TextDecoder().decode(b64d(RECEIVER_B64))}catch(e){return ''}}
 $('#rCopy').addEventListener('click',()=>copyText(receiverText()));
 $('#rDl').addEventListener('click',()=>download('收件台.html',new Blob([receiverText()],{type:'text/html'})));
+
+/* ================= 前台畫面 ================= */
+function setFrame(sel,html){const old=$(sel);if(!old)return;const f=old.cloneNode(false);f.removeAttribute('srcdoc');old.replaceWith(f);f.srcdoc=html}
+const lookKey=()=>(U.cms||'').trim()||'（未填網站）';
+const curLook=()=>(G.looks||{})[lookKey()]||null;
+function annotate(h){const pos=[];const html=String(h).replace(/<!--[\s\S]*?-->|<([a-zA-Z][\w:-]*)(?=[\s\/>])/g,(m,t,off)=>{if(!t)return m;pos.push(off);return m+' data-k="'+(pos.length-1)+'"'});return{html,pos}}
+function elemEnd(h,p){const voids=/^(area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr)$/i;const re=/<!--[\s\S]*?-->|<(\/?)([a-zA-Z][\w:-]*)\b[^>]*?(\/?)>/g;re.lastIndex=p;let depth=0,m;
+  while((m=re.exec(h))){if(!m[2])continue;if(voids.test(m[2])||m[3]){if(depth===0)return re.lastIndex;continue}if(!m[1])depth++;else{depth--;if(depth<=0)return re.lastIndex}}return h.length}
+function changedKs(a,b,pos){const g=lineOps(a,b),lines=new Set();let ln=0;g.forEach(x=>{if(x.t==='eq'){ln++;return}if(!x.n.length)lines.add(ln);x.n.forEach(()=>{lines.add(ln);ln++})});if(!lines.size)return[];
+  const starts=[0];for(let i=0;i<b.length;i++)if(b.charCodeAt(i)===10)starts.push(i+1);const lineOf=q=>{let lo=0,hi=starts.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(starts[m]<=q)lo=m;else hi=m-1}return lo};
+  const tl=pos.map(lineOf),ks=new Set();tl.forEach((l,k)=>{if(lines.has(l))ks.add(k)});lines.forEach(l=>{if(!tl.includes(l)){let k=-1;for(let i=0;i<pos.length;i++){if(tl[i]<l)k=i;else break}if(k>=0)ks.add(k)}});return[...ks]}
+function findTarget(doc,h){const tmp=new DOMParser().parseFromString('<body>'+h+'</body>','text/html').body.firstElementChild;if(!tmp)return null;
+  if(tmp.id){const t=doc.getElementById(tmp.id);if(t)return t}const sel=tmp.tagName.toLowerCase()+[...tmp.classList].map(c=>'.'+CSS.escape(c)).join('');let c=[];try{c=[...doc.querySelectorAll(sel)]}catch(e){}
+  const tx=norm(tmp.textContent).slice(0,30);return c.find(x=>tx&&norm(x.textContent).startsWith(tx))||(c.length===1?c[0]:null)}
+function chainOf(el){const c=[];let e=el;while(e&&e.tagName!=='BODY'&&e.tagName!=='HTML'){c.unshift({t:e.tagName.toLowerCase(),c:e.getAttribute('class')||''});if(e.tagName==='MAIN')break;e=e.parentElement}return c}
+function frontDoc(h,opt){opt=opt||{};const look=curLook();const an=annotate(h);const body=resolveImgs(an.html);
+  const ks=opt.old!=null?changedKs(opt.old,h,an.pos):[];const chg=ks.map(k=>'[data-k="'+k+'"]').join(',');
+  const css=(chg?chg+'{outline:3px solid #f0b400!important;outline-offset:2px;background-color:rgba(255,200,0,.16)!important}':'')+'[data-k]:hover{outline:2px dashed #0f6b66;outline-offset:2px;cursor:pointer}.__sel{outline:3px solid #0f6b66!important;outline-offset:2px}mark.__t{background:#ffe066;color:#000;padding:0 2px}';
+  const script='<script>(function(){var T='+JSON.stringify(opt.terms||[])+',SH='+(opt.showHidden?1:0)+',CH='+JSON.stringify(chg)+';'+
+   'document.addEventListener("click",function(e){var el=e.target.closest&&e.target.closest("[data-k]");e.preventDefault();e.stopPropagation();if(!el)return;var s=document.querySelectorAll(".__sel");for(var i=0;i<s.length;i++)s[i].classList.remove("__sel");el.classList.add("__sel");parent.postMessage({deskK:+el.getAttribute("data-k")},"*")},true);'+
+   'function go(){if(SH){var a=document.querySelectorAll("[data-k]");for(var i=0;i<a.length;i++){if(getComputedStyle(a[i]).display==="none")a[i].style.setProperty("display","block","important")}}'+
+   'if(T.length){var w=document.createTreeWalker(document.body,4),n,L=[];while((n=w.nextNode())){if(n.parentNode&&n.parentNode.closest&&n.parentNode.closest("[data-k]"))L.push(n)}'+
+   'L.forEach(function(n){var t=n.nodeValue;if(!T.some(function(x){return t.indexOf(x)>=0}))return;var f=document.createDocumentFragment(),r=t;while(r){var bi=-1,bx="";T.forEach(function(x){var i=r.indexOf(x);if(i>=0&&(bi<0||i<bi)){bi=i;bx=x}});if(bi<0){f.appendChild(document.createTextNode(r));break}if(bi)f.appendChild(document.createTextNode(r.slice(0,bi)));var m=document.createElement("mark");m.className="__t";m.textContent=bx;f.appendChild(m);r=r.slice(bi+bx.length)}n.parentNode.replaceChild(f,n)})}'+
+   'var first=(CH&&document.querySelector(CH))||document.querySelector("mark.__t");if(first&&first.scrollIntoView)first.scrollIntoView({block:"center"})}'+
+   'var Ls=document.querySelectorAll("link[data-m]");for(var j=0;j<Ls.length;j++)Ls[j].media=Ls[j].getAttribute("data-m");'+'if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go()})()<\/script>';
+  if(look&&look.page){const doc=new DOMParser().parseFromString(look.page,'text/html');doc.querySelectorAll('script,noscript,#loading,.loading').forEach(x=>x.remove());
+    let placed=false;const tgt=findTarget(doc,h);if(tgt&&tgt.parentElement){tgt.parentElement.innerHTML=body;placed=true}
+    else if(look.chain&&look.chain.length){let top=null;try{top=doc.querySelector(look.chain[0].t+(look.chain[0].c?'.'+look.chain[0].c.trim().split(/\s+/).map(c=>CSS.escape(c)).join('.'):''))}catch(x){}
+      if(top){const inner=look.chain.slice(1);top.innerHTML=inner.map(c=>'<'+c.t+(c.c?' class="'+esc(c.c)+'"':'')+'>').join('')+body+inner.slice().reverse().map(c=>'</'+c.t+'>').join('');placed=true}}
+    if(!placed)(doc.querySelector('main')||doc.body).innerHTML=body;
+    doc.querySelectorAll('link[rel~=stylesheet]').forEach(l=>{l.setAttribute('data-m',l.getAttribute('media')||'all');l.setAttribute('media','print')});
+    const base=doc.createElement('base');base.href=look.site;doc.head.prepend(base);const st=doc.createElement('style');st.textContent=css;doc.head.appendChild(st);
+    return '<!doctype html>'+doc.documentElement.outerHTML.replace(/<\/body>(?![\s\S]*<\/body>)/,script+'</body>')}
+  return '<!doctype html><html><head><meta charset="utf-8">'+(look?'<base href="'+esc(look.site)+'">':'')+'<style>body{font-family:"Microsoft JhengHei",sans-serif;padding:16px;line-height:1.7;color:#222;background:#fff}img{max-width:100%}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:4px 8px}'+css+'</style></head><body>'+body+script+'</body></html>'}
+let fpT=null,fpTerms=[],fpPos=[];
+function renderFront(){const look=curLook();$('#fpLook').innerHTML=look?'套用「'+esc(lookKey())+'」的前台樣式（'+esc(look.site)+'）。在 claude.ai 預覽裡外部樣式會被擋，請用 GitHub 版或下載的檔案。':'還沒設定前台樣式，先用簡單版面顯示。到「單元設定 → 前台畫面樣式」貼一次前台頁面原始碼，就會變成跟前台一樣。';
+  $('#fpTermsBar').innerHTML=fpTerms.length?'<span class="chip warn">標示：'+fpTerms.slice(0,4).map(esc).join('、')+(fpTerms.length>4?'…':'')+'</span><button class="mini" id="fpClr">清除標示</button>':'';const c=$('#fpClr');if(c)c.onclick=()=>{fpTerms=[];renderFront()};
+  if(!U.html.trim()){setFrame('#fpF','<p style="font-family:sans-serif;color:#666;padding:16px">這個單元還沒有原始碼。</p>');return}
+  const l=latestV();fpPos=annotate(U.html).pos;setFrame('#fpF',frontDoc(U.html,{terms:fpTerms,showHidden:$('#fpHidden').checked,old:l&&l.html!==U.html?l.html:null}))}
+$('#fpHidden').addEventListener('change',renderFront);
+function parentK(k){const h=U.html,p=fpPos[k],end=elemEnd(h,p);for(let i=k-1;i>=0;i--){if(elemEnd(h,fpPos[i])>=end)return i}return -1}
+function showSnippet(k){const p=fpPos[k];if(p===undefined)return;const h=U.html,end=elemEnd(h,p);
+  const ta=$('#code');ta.focus();ta.setSelectionRange(p,end);const line=h.slice(0,p).split('\n').length-1,lh=parseFloat(getComputedStyle(ta).lineHeight)||19;ta.scrollTop=Math.max(0,(line-3)*lh);
+  const before=h.slice(Math.max(0,p-700),p),coms=[...before.matchAll(/<!--([\s\S]*?)-->/g)].slice(-3).map(m=>m[1].trim()).filter(Boolean);const snip=h.slice(p,end);const tag=(h.slice(p).match(/^<([a-zA-Z][\w:-]*)([^>]*)>/)||[]);const cls=(tag[2]||'').match(/class\s*=\s*["']([^"']+)/);
+  const pk=parentK(k),nLines=snip.split('\n').length;
+  const box=$('#fpInfo');box.innerHTML='<h3>&lt;'+esc(tag[1]||'')+(cls?'.'+esc(cls[1].trim().replace(/\s+/g,'.')):'')+'&gt;　<span class="hint">第 '+(line+1)+' 行起，共 '+nLines+' 行</span></h3>'+(coms.length?'<div class="field"><span class="fl">附近的註解</span>'+coms.map(c=>'<div class="chip warn" style="white-space:normal">'+esc(c)+'</div>').join('')+'</div>':'<p class="hint">附近沒有註解。可以用 AI 改稿的「幫原始碼補註解」補上。</p>')+'<pre class="snip"></pre><div class="row">'+(pk>=0?'<button class="mini" id="fpUp">選取外層</button>':'')+'<button class="mini" id="fpCopy">複製這一段</button><button class="mini" id="fpAi">交給 AI 改這一段</button></div><p class="hint">要新增一個同樣的項目（例如再加一位講師），先按「選取外層」選到整個項目，再複製這一段來改。</p>';
+  box.querySelector('.snip').textContent=snip.length>3000?snip.slice(0,3000)+'\n…':snip;box.querySelector('#fpCopy').onclick=()=>copyText(snip);const up=box.querySelector('#fpUp');if(up)up.onclick=()=>showSnippet(pk);
+  box.querySelector('#fpAi').onclick=()=>{$('#aiExtra').value='只修改下面這一段，其他地方一律不動：\n'+(snip.length>1500?snip.slice(0,1500)+'\n…（以下省略）':snip)+'\n\n要改成：';curPrompt='p-free';showTab('ai');toast('已把這一段帶到補充要求，寫下要改成什麼再產生提示詞')}}
+window.addEventListener('message',e=>{if(!e.data||e.data.deskK===undefined||e.source!==$('#fpF').contentWindow)return;showSnippet(e.data.deskK)});
+function renderLookState(){const lk=curLook();$('#lkState').textContent=lk?'已設定（'+lk.site+'，'+fmtTime(lk.at)+'），套用到網站／CMS 系統是「'+lookKey()+'」的所有單元。'+(lk.chain&&lk.chain.length?'內容外框：'+lk.chain.map(c=>c.t+(c.c?'.'+c.c.trim().split(/\s+/)[0]:'')).join(' > '):''):'還沒設定。設定後，「原始碼與版本」會顯示跟前台一樣的畫面。套用對象是「網站／CMS 系統」欄位相同的單元。';
+  if(lk&&!$('#lkSite').value)$('#lkSite').value=lk.site}
+$('#lkGo').addEventListener('click',()=>{const src=$('#lkSrc').value;if(!/<html|<head|<body/i.test(src)){toast('請貼上整頁原始碼（Ctrl+U 打開後全選複製）');return}
+  let site=$('#lkSite').value.trim();const doc=new DOMParser().parseFromString(src,'text/html');
+  if(!site){const c=doc.querySelector('link[rel=canonical],meta[property="og:url"]');const u=c&&(c.getAttribute('href')||c.getAttribute('content'));if(u&&/^https?:/.test(u))site=new URL(u).origin}
+  if(!/^https?:\/\//.test(site)){toast('請填前台網址，例如 https://www.cca.gov.tw');return}site=site.replace(/\/+$/,'')+'/';
+  const css=doc.querySelectorAll('link[rel~=stylesheet]').length;doc.querySelectorAll('script,noscript').forEach(x=>x.remove());
+  const prev=curLook();let chain=prev?prev.chain:null,found=false;if(U.html.trim()){const t=findTarget(doc,U.html);if(t&&t.parentElement){chain=chainOf(t.parentElement);found=true}}
+  G.looks=G.looks||{};G.looks[lookKey()]={site,page:'<!doctype html>'+doc.documentElement.outerHTML,chain,at:Date.now()};saveG();$('#lkSrc').value='';renderLookState();
+  toast('已設定：'+css+' 個樣式檔'+(found?'，也找到這個單元在頁面中的位置':U.html.trim()?'。這頁裡找不到這個單元的內容，外框用'+(chain?'之前設定的':'頁面主要區塊'):''))});
+
+/* ================= 影響範圍 ================= */
+async function renderImpact(d){const box=$('#dImpact');const a=snapById($('#dA').value),b=snapById($('#dB').value);if(!a||!b)return;box.innerHTML='<p class="hint">正在所有單元裡找被改到的資料…</p>';
+  const terms=new Map();let adds=0;
+  d.forEach(sh=>{const freq={};[...(a.sheets[sh.sheet]||[]),...(b.sheets[sh.sheet]||[])].forEach(r=>new Set(r).forEach(v=>{if(v)freq[v]=(freq[v]||0)+1}));
+    sh.items.forEach(it=>{if(it.k==='add'){adds++;return}(it.old||[]).forEach(v=>{v=String(v).replace(/〔註解：[\s\S]*?〕/g,'').trim();if(v.length>=2&&v.length<=40&&(freq[v]||0)<=4&&norm(v).length>=2&&!/^[\d\s\/:.\-（）()一二三四五六日月年]+$/.test(v))terms.set(v,it.lab)})})});
+  const list=[];for(const x of IDX){const u=x.id===U.id?U:await store.get('unit:'+x.id);if(!u||!u.html)continue;const nt=norm(textOf(u.html));const hits=[];terms.forEach((lab,t)=>{const n=nt.split(norm(t)).length-1;if(n)hits.push([t,n])});if(hits.length)list.push({id:x.id,name:u.name,hits})}
+  list.sort((p,q)=>q.hits.length-p.hits.length);
+  box.innerHTML='<h3 style="margin-top:8px">可能要改的單元</h3>'+(list.length?list.map(u=>'<div class="li"><div class="t"><b>'+esc(u.name)+'</b><div class="row">'+u.hits.slice(0,8).map(h=>'<span class="chip warn">'+esc(h[0])+(h[1]>1?' ×'+h[1]:'')+'</span>').join('')+(u.hits.length>8?'<span class="hint">等 '+u.hits.length+' 項</span>':'')+'</div></div><button data-imp="'+esc(u.id)+'">看前台畫面</button></div>').join(''):'<p class="hint">在所有單元裡都找不到被改掉的舊資料。</p>')+
+    (adds?'<p class="hint">另外有 '+adds+' 筆是新增的資料，網頁上還沒有，要決定放在哪個單元（可以用 AI 改稿的「新增一段內容」）。</p>':'')+'<p class="hint">做法：拿被改掉的舊資料（例如舊職稱、被移除的人名）去搜尋每個單元的內容。很多列都出現的值（例如「與談人」）不拿來搜尋，避免一堆誤報。</p>';
+  box.querySelectorAll('[data-imp]').forEach(bt=>bt.addEventListener('click',async()=>{const u=list.find(x=>x.id===bt.dataset.imp);fpTerms=u.hits.map(h=>h[0]);curTab='code';if(u.id===U.id)showTab('code');else await openUnit(u.id)}))}
 
 /* ================= 範例與啟動 ================= */
 function sampleImg(label,hue){const c=document.createElement('canvas');c.width=800;c.height=500;const g=c.getContext('2d');const gr=g.createLinearGradient(0,0,800,500);gr.addColorStop(0,'hsl('+hue+',40%,36%)');gr.addColorStop(1,'hsl('+(hue+30)+',35%,60%)');g.fillStyle=gr;g.fillRect(0,0,800,500);g.fillStyle='rgba(255,255,255,.92)';g.font='bold 44px sans-serif';g.textAlign='center';g.fillText(label,400,250);g.font='24px sans-serif';g.fillText('範例圖片',400,295);return c.toDataURL('image/jpeg',0.8)}
