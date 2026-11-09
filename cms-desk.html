@@ -434,6 +434,8 @@ const DEFAULT_PROMPTS=[
   body:'你是政府機關網站的上稿編輯。我附上了最新資料，請依資料更新下面這個 CKEditor 原始碼。\n\n做法：\n1. 先找出資料和目前原始碼不一致的地方，只改這些地方；其他內容、HTML 結構、class、屬性一律不動。\n2. 人名、職稱、單位、日期、時間、數字，一律照資料原文，一字不改。\n3. Excel 裡的括號說明、※、備註、顏色標示、「待確認」「暫定」等，多半是給內部看的注記，不要放上網頁；如果看不出是不是注記，列在 questions。\n4. 資料裡有、原始碼沒有的新項目，比照原始碼既有的同類項目寫法加入。\n5. 資料標示取消、婉拒的項目，從原始碼移除，並寫在 changes。\n\n工具比對出這次資料和上一版的差異（供參考，以附件為準）：\n[[資料差異]]\n\n這次的補充要求：[[補充]]\n\n'+CTX+CONTRACT},
  {id:'p-read',name:'看懂 Excel 與注記',kind:'text',attach:'附加 Excel（新舊兩版都附更好）',desc:'Excel 太亂時先用這個。AI 整理成看得懂的清單，挑出會影響網頁的注記，列出要問電腦公會的問題。',
   body:'附件是合作廠商提供的活動資料 Excel，格式複雜、注記很多。請幫我整理，分成四段輸出：\n\n一、依場次（日期）整理的上稿用清單：用表格列出每一場的角色、順序、姓名、單位職稱、狀態。只列資料裡確實有的，空缺就寫「（空缺）」。\n二、會影響網頁內容的注記：寫出「場次／對象／注記原文／對上稿的影響」。\n三、只是內部提醒、不用上網頁的注記：簡短列出即可。\n四、需要詢問電腦公會或承辦人的問題：每題一句，可以直接複製發問，同一場次放在一起。\n\n規則：姓名、職稱照原文；不確定就寫不確定，不要推測。\n\n工具比對出的版本差異（如果有）：\n[[資料差異]]\n\n補充要求：[[補充]]'},
+ {id:'p-learn',name:'看懂舊版原始碼',kind:'text',target:'rules',attach:'',desc:'接手別人寫的頁面時先用這個。AI 讀目前原始碼，說明每個區塊怎麼寫、同類東西為什麼有不同寫法、要新增時照哪個抄，並整理成規則存進這個單元。',
+  body:'下面是一個政府機關網站頁面的 CKEditor 原始碼，是前人寫的，我要接手維護。請幫我看懂它，分四段輸出：\n\n一、頁面結構：由上到下列出每個區塊（用 HTML 註解、標題或 id 辨識），每個區塊一句話說明用途。\n二、重複出現的項目（例如影片、講者、場次、連結卡片）：每一種寫出它的 HTML 骨架，把會變動的地方標成【影片ID】【標題】【日期】【圖片】這類記號。同一類東西如果有兩種以上寫法（例如影片有 iframe 嵌入、也有圖片加連結），列出差異，並推測為什麼這樣分；看不出原因就直接說看不出來，不要編。\n三、要新增一個項目時：照哪個骨架、放在哪裡、要準備哪些資料（例如 YouTube 影片 ID 從網址哪裡取、縮圖要另外上傳）。\n四、容易改壞的地方：例如成對的標籤、錨點 id、特定 class、無障礙屬性（iframe 的 title、圖片 alt、另開新視窗的提示）。\n\n最後另外輸出一個 text 程式碼區塊，裡面是給之後改稿用的規則，一行一條，寫成可以直接照做的句子，例如「新增影片一律用 iframe，src 為 https://www.youtube.com/embed/影片ID，title 填影片標題」。只寫原始碼裡看得出來的規則。\n\n我的補充：[[補充]]\n\n【目前的原始碼】\n```html\n[[原始碼]]\n```'},
  {id:'p-proof',name:'校對',kind:'html',attach:'',desc:'上稿給承辦人確認前用。找錯字、標點、日期與機關全銜寫法不一致。',
   body:'你是政府機關網站的校對人員。請校對下面的原始碼，只修正確定有問題的地方：錯別字、漏字、全形與半形標點混用、日期與時間寫法不一致、機關全銜與職稱在全文寫法不一致。不要改寫語氣與文意，不要動 HTML 結構。每一處修改都寫在 changes。\n\n補充要求：[[補充]]\n\n'+CTX+CONTRACT},
  {id:'p-a11y',name:'修正無障礙問題',kind:'html',attach:'附上照片的話，AI 可以順便寫替代文字',desc:'依無障礙規範修正：圖片替代文字、標題層級、連結文字、表格標題列、全形空白排版。',
@@ -447,7 +449,7 @@ const DEFAULT_PROMPTS=[
  {id:'p-free',name:'自由提問',kind:'text',attach:'',desc:'把這個單元的原始碼和規則帶給 AI，問什麼都可以。如果 AI 回了修改後的原始碼，一樣可以貼回來檢查。',
   body:'以下是一個政府機關網站頁面的資料，請根據它回答我的問題。\n\n我的問題：[[補充]]\n\n'+CTX+'\n\n如果你的回答包含修改後的原始碼，請放在一個 ```html 程式碼區塊，給完整原始碼，{{BASE}} 原樣保留。'}
 ];
-const EXTRA_CHIPS=['只改資料有變動的地方','不確定的都列在 questions，不要猜','用更正式的公文語氣','這次有新增場次'];
+const EXTRA_CHIPS=['照這個單元既有的寫法新增，不要自創新格式','我會給 YouTube 網址，請自己取出影片 ID','只改資料有變動的地方','不確定的都列在 questions，不要猜','用更正式的公文語氣','這次有新增場次'];
 const PH=['單元','系統','節點位置','規則','原始碼','圖片清單','資料','資料差異','版本差異','設定清單','補充','今天'];
 function defaultGlobal(){return{rules:['人名、職稱、單位、日期、數字一律照資料原文，不可改寫或推測','不要新增 style、font、span 等格式標籤（原始碼本來就有的保留）','不要用全形空白或空段落排版'],prompts:clone(DEFAULT_PROMPTS),seen:DEFAULT_PROMPTS.map(p=>p.id),chunk:1000000,zip:true,fmt:'image/jpeg',maxEdge:1920,q:82}}
 const DEF_ENVS=()=>[{id:'company',name:'公司機'},{id:'test',name:'測試機'},{id:'prod',name:'正式機'}];
@@ -618,6 +620,9 @@ $('#btnParse').addEventListener('click',()=>{const r=$('#aiReply').value;if(!r.t
   aiState=null;$('#aiText').hidden=false;const btns=$('#aiTextBtns');btns.innerHTML='';
   if(p.target==='checklist'){const lines=(x.text||r).split('\n').map(s=>s.replace(/^[\s\-*•\d.、]+/,'').trim()).filter(s=>s&&!/^```/.test(s));
     $('#aiTextHint').textContent='AI 產生了 '+lines.length+' 項設定。存到這個單元後，每個上稿包都會附上這份清單。';const b=document.createElement('button');b.className='primary';b.textContent='存成這個單元的節點設定清單';b.onclick=()=>{U.checklist=lines;saveU();toast('已存 '+lines.length+' 項設定');$('#aiText').hidden=true};btns.appendChild(b)}
+  else if(p.target==='rules'){const lines=(x.text||'').split('\n').map(s=>s.replace(/^[\s\-*•\d.、]+/,'').trim()).filter(s=>s&&!/^```/.test(s));
+    if(lines.length){$('#aiTextHint').textContent='AI 整理出 '+lines.length+' 條規則。存進這個單元後，之後產生的改稿提示詞都會帶上；可以到「單元設定」修改。';const b=document.createElement('button');b.className='primary';b.textContent='把這些規則存進這個單元';b.onclick=()=>{const add=lines.filter(l=>!U.rules.includes(l));U.rules.push(...add);saveU();toast('已存 '+add.length+' 條規則');$('#aiText').hidden=true};btns.appendChild(b)}
+    else $('#aiTextHint').textContent='回覆裡找不到規則的 text 程式碼區塊。說明部分直接在 AI 那邊看；需要的話，請 AI「把規則放在 text 程式碼區塊，一行一條」。'}
   else $('#aiTextHint').textContent=p.kind==='html'?'回覆裡找不到 ```html 程式碼區塊。可以請 AI「把完整原始碼放在 ```html 程式碼區塊裡」再貼一次。':'這是文字回覆，直接在 AI 那邊使用即可。'});
 function showResult(){if(!aiState)return;const cand=aiState.cand;const s=U.srcs[U.srcs.length-1];const src=[s?bookText(s.sheets):'',$('#aiSrc').value].join('\n');
   const cl=checkHtml(aiState.base,cand,src);const ch=checksHtml(cl);$('#aiChecks').innerHTML=ch.body;
