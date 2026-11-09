@@ -124,8 +124,48 @@ ol.how{margin:0;padding-left:20px;font-size:13px;display:flex;flex-direction:col
       <label class="fl" for="unitSel">單元</label>
       <select id="unitSel"></select>
       <span id="saveState" class="save-state"></span>
+      <button id="modeBtn" class="mini"></button>
     </div>
   </header>
+
+  <section id="simple" hidden>
+    <div class="panel">
+      <div class="ph"><h2>① 要改什麼？</h2><span class="hint" id="smUnit"></span></div>
+      <div class="pb">
+        <textarea id="smReq" rows="3" placeholder="貼上或直接打要改的內容。例如：童子賢職稱改成召集人；或貼上電腦公會的 email、Excel 複製的幾格、YouTube 網址。"></textarea>
+        <div class="row"><button id="smFind" class="primary big">找出要改的地方</button><span class="hint" id="smFound"></span></div>
+        <div id="smUnits" class="row"></div>
+        <div id="smSel" class="row hint">也可以直接在下面的畫面上點要改的位置。</div>
+        <iframe class="pv big" id="smF" title="前台畫面" sandbox="allow-scripts"></iframe>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h2>② 讓 AI 改</h2></div>
+      <div class="pb">
+        <div class="row"><button id="smGen" class="primary big">複製給 AI 的指令</button><span class="hint">貼到 ChatGPT 等 AI。有附件（Excel、照片、截圖）就一起附上。</span></div>
+        <textarea id="smReply" rows="4" placeholder="把 AI 的回覆整段貼回來"></textarea>
+        <div class="row"><button id="smCheck" class="primary big">檢查</button></div>
+        <div id="smResult" hidden class="field">
+          <div id="smVerdict"></div>
+          <iframe class="pv big" id="smPv" title="改好的前台畫面（黃框是改到的地方）" sandbox="allow-scripts"></iframe>
+          <details><summary>看原始碼差異</summary><div class="diff mono" id="smDiff"></div></details>
+          <div class="row"><button id="smOk" class="primary big">沒問題，用這個版本</button><button id="smNo">不要，重來</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h2>③ 上稿</h2><button id="smRecv" class="mini">VDI 剛清空？複製收件台</button></div>
+      <div class="pb">
+        <div class="envs" id="smEnvs"></div>
+        <div id="smPack" hidden class="field">
+          <p class="hint" id="smPackInfo"></p>
+          <button id="smNext" class="primary big">複製下一卷</button>
+          <p class="hint">到 VDI 的收件台按 Ctrl+V。圖片照收件台的指示上傳，原始碼貼進 CKEditor。</p>
+          <div class="row"><button id="smDone" class="primary">上好了</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <nav class="steps" role="tablist" aria-label="步驟">
     <button role="tab" data-tab="unit" aria-selected="false"><span class="n">0</span>單元設定</button>
@@ -464,6 +504,8 @@ const DEFAULT_PROMPTS=[
   body:'下面是一個政府機關網站頁面的 CKEditor 原始碼，是前人寫的，我要接手維護。請幫我看懂它，分四段輸出：\n\n一、頁面結構：由上到下列出每個區塊（用 HTML 註解、標題或 id 辨識），每個區塊一句話說明用途。\n二、重複出現的項目（例如影片、講者、場次、連結卡片）：每一種寫出它的 HTML 骨架，把會變動的地方標成【影片ID】【標題】【日期】【圖片】這類記號。同一類東西如果有兩種以上寫法（例如影片有 iframe 嵌入、也有圖片加連結），列出差異，並推測為什麼這樣分；看不出原因就直接說看不出來，不要編。\n三、要新增一個項目時：照哪個骨架、放在哪裡、要準備哪些資料（例如 YouTube 影片 ID 從網址哪裡取、縮圖要另外上傳）。\n四、容易改壞的地方：例如成對的標籤、錨點 id、特定 class、無障礙屬性（iframe 的 title、圖片 alt、另開新視窗的提示）。\n\n最後另外輸出一個 text 程式碼區塊，裡面是給之後改稿用的規則，一行一條，寫成可以直接照做的句子，例如「新增影片一律用 iframe，src 為 https://www.youtube.com/embed/影片ID，title 填影片標題」。只寫原始碼裡看得出來的規則。\n\n我的補充：[[補充]]\n\n【目前的原始碼】\n```html\n[[原始碼]]\n```'},
  {id:'p-annotate',name:'幫原始碼補註解',kind:'html',onlyComments:true,attach:'',desc:'前人沒寫註解的原始碼，請 AI 只加 HTML 註解：標出每個區塊、說明新增項目時要複製哪一段、哪些 id 要和其他頁對應。工具會檢查除了註解以外完全沒有變動。',
   body:'下面是一個政府機關網站頁面的 CKEditor 原始碼，前人沒有寫註解。請「只加入 HTML 註解」，其他任何字元（標籤、屬性、文字、空白以外的內容）都不可以改。\n\n註解寫法統一如下：\n1. 每個區塊開頭：<!-- 區塊:名稱 -->，結尾：<!-- /區塊:名稱 -->\n2. 會重複新增的項目（影片、講者、場次、連結卡片），在第一個項目前加：<!-- 新增方式: 複製哪個元素（例如 div.list1），要改哪些地方（例如 影片網址、縮圖、日期、標題） -->\n3. 和其他頁面互相對應的 id、錨點或連結（例如講者卡片連到講者內頁），在旁邊加：<!-- 對應: 說明這個 id 要和哪裡一致 -->\n4. 看不出用途的地方寫 <!-- 用途不明，請確認 -->，不要猜。\n\n補充：[[補充]]\n\n'+CTX+CONTRACT},
+ {id:'p-simple',name:'依要求修改（簡單畫面用）',kind:'html',attach:'',desc:'簡單畫面用的指令：依使用者寫的要求修改原始碼。',
+  body:'你是政府機關網站的上稿編輯。請依「要改的內容」修改下面的 CKEditor 原始碼。\n\n規則：\n1. 只改要改的地方，其他內容、HTML 結構、class、id、屬性一律不動。\n2. 人名、職稱、單位、日期、數字照原文，不要改寫或推測。\n3. 要新增項目時，照原始碼裡既有的同類項目寫法複製後修改（例如卡片和彈窗要用同一個 id、編號接續）。\n4. YouTube 影片 ID 從網址取（watch?v= 後面、youtu.be/ 後面那 11 個字元）。\n5. 看不懂或資料不足的地方，不要猜，寫在 questions。\n\n【要改的內容】\n[[補充]]\n\n【我在畫面上點選的位置（如果有）】\n[[選取]]\n\n'+CTX+CONTRACT},
  {id:'p-proof',name:'校對',kind:'html',attach:'',desc:'上稿給承辦人確認前用。找錯字、標點、日期與機關全銜寫法不一致。',
   body:'你是政府機關網站的校對人員。請校對下面的原始碼，只修正確定有問題的地方：錯別字、漏字、全形與半形標點混用、日期與時間寫法不一致、機關全銜與職稱在全文寫法不一致。不要改寫語氣與文意，不要動 HTML 結構。每一處修改都寫在 changes。\n\n補充要求：[[補充]]\n\n'+CTX+CONTRACT},
  {id:'p-a11y',name:'修正無障礙問題',kind:'html',attach:'附上照片的話，AI 可以順便寫替代文字',desc:'依無障礙規範修正：圖片替代文字、標題層級、連結文字、表格標題列、全形空白排版。',
@@ -479,7 +521,7 @@ const DEFAULT_PROMPTS=[
 ];
 const EXTRA_CHIPS=['照這個單元既有的寫法新增，不要自創新格式','卡片和內頁（彈窗）用同一個 id，編號接續現有最大號，兩邊的姓名、照片、職稱要一致','我會給 YouTube 網址，請自己取出影片 ID','只改資料有變動的地方','不確定的都列在 questions，不要猜','用更正式的公文語氣','這次有新增場次'];
 const PH=['單元','系統','節點位置','規則','原始碼','圖片清單','資料','資料差異','版本差異','設定清單','補充','今天'];
-function defaultGlobal(){return{rules:['人名、職稱、單位、日期、數字一律照資料原文，不可改寫或推測','不要新增 style、font、span 等格式標籤（原始碼本來就有的保留）','不要用全形空白或空段落排版'],prompts:clone(DEFAULT_PROMPTS),seen:DEFAULT_PROMPTS.map(p=>p.id),chunk:1000000,zip:true,fmt:'image/jpeg',maxEdge:1920,q:82,looks:{}}}
+function defaultGlobal(){return{rules:['人名、職稱、單位、日期、數字一律照資料原文，不可改寫或推測','不要新增 style、font、span 等格式標籤（原始碼本來就有的保留）','不要用全形空白或空段落排版'],prompts:clone(DEFAULT_PROMPTS),seen:DEFAULT_PROMPTS.map(p=>p.id),chunk:1000000,zip:true,fmt:'image/jpeg',maxEdge:1920,q:82,looks:{},mode:'simple'}}
 const DEF_ENVS=()=>[{id:'company',name:'公司機'},{id:'test',name:'測試機'},{id:'prod',name:'正式機'}];
 function blankUnit(from){const envs=(from?from.envs:DEF_ENVS()).map(e=>({id:e.id,name:e.name,base:from?e.base:'',admin:'',front:'',sent:null,packed:null}));
   return{id:uid(),imgSpec:from&&from.imgSpec?clone(from.imgSpec):{ratio:'free',w:1200},name:'未命名單元',cms:from?from.cms:'',path:'',tags:'',html:'',versions:[],images:[],rules:from?from.rules.slice():[],checklist:from?from.checklist.slice():[],srcs:[],envs,updated:Date.now()}}
@@ -538,7 +580,7 @@ function checksHtml(list){const icon={e:'✗',w:'!',o:'✓',i:'·'};const n={e:0
 
 /* ================= 分頁 ================= */
 let curTab='ai',curEnv='test';
-function showTab(t){curTab=t;{const n=document.querySelector('nav.steps');if(n&&n.getBoundingClientRect().top<0)n.scrollIntoView({block:'start'})}$$('nav.steps button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));['unit','data','ai','code','img','ship'].forEach(n=>$('#tab-'+n).hidden=n!==t);
+function showTab(t){curTab=t;const simple=G.mode!=='full';$('#simple').hidden=!simple;$('nav.steps').hidden=simple;$('#modeBtn').textContent=simple?'完整功能':'簡單畫面';if(simple){['unit','data','ai','code','img','ship'].forEach(n=>$('#tab-'+n).hidden=true);renderSimple();return}{const n=document.querySelector('nav.steps');if(n&&n.getBoundingClientRect().top<0)n.scrollIntoView({block:'start'})}$$('nav.steps button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));['unit','data','ai','code','img','ship'].forEach(n=>$('#tab-'+n).hidden=n!==t);
   ({unit:renderUnit,data:renderData,ai:renderAI,code:renderCode,img:renderImgs,ship:renderShip})[t]()}
 $$('nav.steps button').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
 function refreshBadge(){const n=U.envs.filter(e=>envState(e).s==='need').length;const b=$('#shipBadge');b.hidden=!n;b.textContent=n}
@@ -627,7 +669,7 @@ $('#dToAi').addEventListener('click',()=>{curPrompt='p-update';showTab('ai');toa
 /* ================= 2 AI 改稿 ================= */
 let curPrompt='p-update',aiState=null;
 const curP=()=>G.prompts.find(p=>p.id===curPrompt)||G.prompts[0];
-function ctxValue(n){const e=U.envs.find(x=>x.id===curEnv)||U.envs[0];switch(n){
+function ctxValue(n){if(ctxOver&&ctxOver[n]!==undefined)return ctxOver[n];const e=U.envs.find(x=>x.id===curEnv)||U.envs[0];switch(n){
   case '單元':return U.name;case '系統':return U.cms||'（未填）';case '節點位置':return U.path||'（未填）';
   case '規則':{const r=[...G.rules,...U.rules];return r.length?r.map((x,i)=>(i+1)+'. '+x).join('\n'):'（無）'}
   case '原始碼':return U.html||'（目前沒有原始碼）';
@@ -858,7 +900,7 @@ function frontDoc(h,opt){opt=opt||{};const look=curLook();const an=annotate(h);c
    'function go(){if(SH){var a=document.querySelectorAll("[data-k]");for(var i=0;i<a.length;i++){if(getComputedStyle(a[i]).display==="none")a[i].style.setProperty("display","block","important")}}'+
    'if(T.length){var w=document.createTreeWalker(document.body,4),n,L=[];while((n=w.nextNode())){if(n.parentNode&&n.parentNode.closest&&n.parentNode.closest("[data-k]"))L.push(n)}'+
    'L.forEach(function(n){var t=n.nodeValue;if(!T.some(function(x){return t.indexOf(x)>=0}))return;var f=document.createDocumentFragment(),r=t;while(r){var bi=-1,bx="";T.forEach(function(x){var i=r.indexOf(x);if(i>=0&&(bi<0||i<bi)){bi=i;bx=x}});if(bi<0){f.appendChild(document.createTextNode(r));break}if(bi)f.appendChild(document.createTextNode(r.slice(0,bi)));var m=document.createElement("mark");m.className="__t";m.textContent=bx;f.appendChild(m);r=r.slice(bi+bx.length)}n.parentNode.replaceChild(f,n)})}'+
-   'var first=(CH&&document.querySelector(CH))||document.querySelector("mark.__t");if(first&&first.scrollIntoView)first.scrollIntoView({block:"center"})}'+
+   'var first=(CH&&document.querySelector(CH))||document.querySelector("mark.__t");if(first&&first.scrollIntoView)first.scrollIntoView({block:"center"});else{var k0=document.querySelector("[data-k]");if(k0&&k0.scrollIntoView)k0.scrollIntoView({block:"start"})}}'+
    'var Ls=document.querySelectorAll("link[data-m]");for(var j=0;j<Ls.length;j++)Ls[j].media=Ls[j].getAttribute("data-m");'+'if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go()})()<\/script>';
   if(look&&look.page){const doc=new DOMParser().parseFromString(look.page,'text/html');doc.querySelectorAll('script,noscript,#loading,.loading').forEach(x=>x.remove());
     let placed=false;const tgt=findTarget(doc,h);if(tgt&&tgt.parentElement){tgt.parentElement.innerHTML=body;placed=true}
@@ -905,6 +947,58 @@ async function renderImpact(d){const box=$('#dImpact');const a=snapById($('#dA')
   box.innerHTML='<h3 style="margin-top:8px">可能要改的單元</h3>'+(list.length?list.map(u=>'<div class="li"><div class="t"><b>'+esc(u.name)+'</b><div class="row">'+u.hits.slice(0,8).map(h=>'<span class="chip warn">'+esc(h[0])+(h[1]>1?' ×'+h[1]:'')+'</span>').join('')+(u.hits.length>8?'<span class="hint">等 '+u.hits.length+' 項</span>':'')+'</div></div><button data-imp="'+esc(u.id)+'">看前台畫面</button></div>').join(''):'<p class="hint">在所有單元裡都找不到被改掉的舊資料。</p>')+
     (adds?'<p class="hint">另外有 '+adds+' 筆是新增的資料，網頁上還沒有，要決定放在哪個單元（可以用 AI 改稿的「新增一段內容」）。</p>':'')+'<p class="hint">做法：拿被改掉的舊資料（例如舊職稱、被移除的人名）去搜尋每個單元的內容。很多列都出現的值（例如「與談人」）不拿來搜尋，避免一堆誤報。</p>';
   box.querySelectorAll('[data-imp]').forEach(bt=>bt.addEventListener('click',async()=>{const u=list.find(x=>x.id===bt.dataset.imp);fpTerms=u.hits.map(h=>h[0]);curTab='code';if(u.id===U.id)showTab('code');else await openUnit(u.id)}))}
+
+/* ================= 簡單畫面 ================= */
+let ctxOver=null,smSel=null,smPos=[],smCand=null,smTerms=[];
+$('#modeBtn').addEventListener('click',()=>{G.mode=G.mode==='full'?'simple':'full';saveG();showTab(G.mode==='full'?'code':'ai')});
+function matchPhrases(req,text){const r=req.replace(/\s+/g,'').slice(0,800),T=text.replace(/\s+/g,'').toLowerCase(),rl=r.toLowerCase(),out=[];let i=0;
+  while(i<r.length){let best=0;for(let L=Math.min(24,r.length-i);L>=2;L--){if(T.includes(rl.substr(i,L))){best=L;break}}if(best){const w=r.substr(i,best);if(!/^[\p{P}\p{S}\d\s]+$/u.test(w))out.push(w);i+=best}else i++}return [...new Set(out)]}
+function renderSimple(){$('#smUnit').textContent='目前頁面：'+U.name;
+  if(!U.html.trim()){setFrame('#smF','<p style="font-family:sans-serif;color:#666;padding:16px">這個頁面還沒有原始碼。請負責維護的人在「完整功能 → 原始碼與版本」先匯入一次。</p>')}
+  else{smPos=annotate(U.html).pos;setFrame('#smF',frontDoc(U.html,{terms:smTerms}))}
+  drawSel();renderSmEnvs()}
+function drawSel(){const b=$('#smSel');if(!smSel){b.innerHTML='也可以直接在下面的畫面上點要改的位置。';return}
+  const sn=U.html.slice(smSel.p,smSel.e),txt=textOf(sn).replace(/\s+/g,' ').slice(0,60);b.innerHTML='<span class="chip ok">已選取</span><span>'+esc(txt||sn.slice(0,60))+'（'+sn.split('\n').length+' 行）</span><button class="mini" id="smUp">選大一點</button><button class="mini" id="smClr">取消選取</button>';
+  const up=$('#smUp');const pk=parentKs(smSel.k);if(pk<0)up.remove();else up.onclick=()=>pickSm(pk);$('#smClr').onclick=()=>{smSel=null;drawSel()}}
+function parentKs(k){const h=U.html,end=elemEnd(h,smPos[k]);for(let i=k-1;i>=0;i--){if(elemEnd(h,smPos[i])>=end)return i}return -1}
+function pickSm(k){const p=smPos[k];if(p===undefined)return;smSel={k,p,e:elemEnd(U.html,p)};drawSel()}
+window.addEventListener('message',e=>{if(!e.data||e.data.deskK===undefined)return;const f=$('#smF');if(!f||e.source!==f.contentWindow)return;pickSm(e.data.deskK)});
+$('#smFind').addEventListener('click',async()=>{const t=$('#smReq').value.trim();if(!t){toast('先貼上或打要改的內容');return}
+  const tokens=new Set(t.split(/[\s，。；、,;:：|｜／\/()（）「」【】"'<>!?！？]+/).filter(Boolean));
+  const found=[];for(const x of IDX){const u=x.id===U.id?U:await store.get('unit:'+x.id);if(!u||!u.html)continue;const hits=matchPhrases(t,textOf(u.html)).filter(w=>w.length>=3||tokens.has(w));if(hits.length)found.push({id:x.id,name:u.name,hits})}
+  const many=found.length>2?[...new Set(found.flatMap(f=>f.hits))].filter(w=>found.every(f=>f.hits.includes(w))):[];found.forEach(f=>f.hits=f.hits.filter(w=>!many.includes(w)));const sc=f=>f.hits.reduce((a,w)=>a+w.length*w.length,0);const list=found.filter(f=>f.hits.length).sort((a,b)=>sc(b)-sc(a));
+  if(!list.length){$('#smFound').textContent='在所有頁面都找不到這些字。如果是要新增內容，請在上方選頁面，再在畫面上點要加在哪裡。';$('#smUnits').innerHTML='';smTerms=[];renderSimple();return}
+  $('#smFound').textContent='找到 '+list.length+' 個頁面有提到：';
+  $('#smUnits').innerHTML=list.slice(0,6).map((f,i)=>'<button data-smu="'+esc(f.id)+'" class="'+(i===0?'primary':'')+'">'+esc(f.name)+'（'+f.hits.slice(0,3).map(esc).join('、')+(f.hits.length>3?'…':'')+'）</button>').join('');
+  $$('[data-smu]').forEach(b=>b.addEventListener('click',async()=>{const f=list.find(x=>x.id===b.dataset.smu);smTerms=f.hits;smSel=null;if(f.id!==U.id)await openUnit(f.id);else renderSimple();$$('[data-smu]').forEach(x=>x.className=x===b?'primary':'')}));
+  const top=list[0];smTerms=top.hits;smSel=null;if(top.id!==U.id)await openUnit(top.id);else renderSimple()});
+$('#smGen').addEventListener('click',()=>{const req=$('#smReq').value.trim();if(!U.html.trim()){toast('這個頁面還沒有原始碼');return}if(!req&&!smSel){toast('先寫要改什麼，或在畫面上點要改的位置');return}
+  const p=G.prompts.find(x=>x.id==='p-simple')||DEFAULT_PROMPTS.find(x=>x.id==='p-simple');ctxOver={'補充':req||'（請依我選取的位置判斷）','選取':smSel?U.html.slice(smSel.p,smSel.e):'（沒有）'};const t=buildPrompt(p);ctxOver=null;
+  copyText(t,true).then(ok=>toast(ok?'指令已複製，貼到 AI 對話':'複製失敗，請到完整功能的 AI 改稿手動複製'))});
+$('#smCheck').addEventListener('click',()=>{const r=$('#smReply').value;if(!r.trim()){toast('先把 AI 的回覆貼進來');return}const x=extract(r);
+  if(!x.html){$('#smResult').hidden=true;toast('回覆裡找不到原始碼。請 AI「把完整原始碼放在 ```html 程式碼區塊」再貼一次');return}
+  smCand=x.html;const s=U.srcs[U.srcs.length-1];const cl=checkHtml(U.html,smCand,[s?bookText(s.sheets):'',$('#smReq').value].join('\n'));
+  const bad=cl.filter(c=>c[0]==='e'),warn=cl.filter(c=>c[0]==='w');const j=x.json||{},qs=Array.isArray(j.questions)?j.questions.filter(Boolean):[];
+  $('#smVerdict').innerHTML=(bad.length?'<p><span class="chip bad">有 '+bad.length+' 個問題，建議請 AI 重改</span></p>':warn.length?'<p><span class="chip warn">大致可以，有 '+warn.length+' 個地方請看一下</span></p>':'<p><span class="chip ok">檢查沒問題</span></p>')+
+    ((bad.length||warn.length)?'<ul class="checks">'+[...bad,...warn].slice(0,6).map(c=>'<li class="'+c[0]+'"><span>'+(c[0]==='e'?'✗':'!')+'</span><span>'+esc(c[1])+'</span></li>').join('')+'</ul>':'')+
+    (qs.length?'<p class="hint">AI 想確認：'+qs.map(q=>esc(typeof q==='string'?q:JSON.stringify(q))).join('；')+'</p>':'')+'<p class="hint">下面是改好的畫面，黃框是改到的地方。</p>';
+  $('#smDiff').innerHTML=U.html===smCand?'<span class="gap">和目前完全相同</span>':diffLinesHtml(U.html,smCand);$('#smResult').hidden=false;setFrame('#smPv',frontDoc(smCand,{old:U.html,showHidden:true}));$('#smResult').scrollIntoView({behavior:'smooth',block:'start'})});
+$('#smOk').addEventListener('click',()=>{if(!smCand)return;U.html=smCand;const v=snapshot(($('#smReq').value.trim().replace(/\s+/g,' ').slice(0,30))||'簡單畫面修改');smCand=null;$('#smResult').hidden=true;$('#smReply').value='';smSel=null;saveU();renderSimple();toast('已存成 v'+v.no+'，可以上稿了');$('#smEnvs').scrollIntoView({behavior:'smooth',block:'center'})});
+$('#smNo').addEventListener('click',()=>{smCand=null;$('#smResult').hidden=true;toast('已放棄這次 AI 的修改')});
+function renderSmEnvs(){const ap=lastApproved();
+  $('#smEnvs').innerHTML=U.envs.map(e=>{const st=envState(e),v=e.sent&&verById(e.sent.verId);let line,btns='';
+    if(st.s==='empty')line='沒有內容';else if(!v)line='還沒上過';else line='已上 v'+v.no+(st.s==='ok'?'，是最新的':'，之後有改');
+    if(e.gate){if(!ap){line+='<br>要承辦確認過才能上';btns='<button disabled>上'+esc(e.name)+'</button>'}else{const same=e.sent&&e.sent.verId===ap.id;line+='<br>會上承辦確認的 v'+ap.no+(ap.html!==U.html?'（之後的修改還沒確認，不會上）':'');btns='<button class="primary" data-smp="'+esc(e.id)+'"'+(same?' disabled':'')+'>'+(same?'已是確認版':'上'+esc(e.name))+'</button>'}}
+    else{btns='<button class="primary" data-smp="'+esc(e.id)+'"'+(st.s==='ok'||st.s==='empty'?' disabled':'')+'>'+(st.s==='ok'?'已是最新':'上'+esc(e.name))+'</button>';if(v&&!v.approved&&st.s==='ok')btns+='<button data-sma="'+esc(e.id)+'">承辦確認了</button>';if(v&&v.approved)line+='<br><span class="chip ok">承辦已確認</span>'}
+    return '<div class="env" style="cursor:default"><span class="nm"><span>'+esc(e.name)+'</span></span><span class="st">'+line+'</span><div class="row">'+btns+'</div></div>'}).join('');
+  $$('[data-smp]').forEach(b=>b.addEventListener('click',async()=>{const e=U.envs.find(x=>x.id===b.dataset.smp);curEnv=e.id;const v=e.gate?lastApproved():snapshot('上'+e.name);saveU();await doPack(e,v);drawSmPack()}));
+  $$('[data-sma]').forEach(b=>b.addEventListener('click',()=>{const e=U.envs.find(x=>x.id===b.dataset.sma);const v=verById(e.sent.verId);v.approved={at:Date.now()};saveU();renderSmEnvs();toast('v'+v.no+' 標記為承辦已確認，正式機可以上了')}))}
+function drawSmPack(){const box=$('#smPack');if(!packed){box.hidden=true;return}const e=U.envs.find(x=>x.id===packed.env);box.hidden=false;
+  $('#smPackInfo').textContent='上'+e.name+'：v'+packed.ver+'，'+packed.nimg+' 張圖片，共 '+packed.chunks.length+' 卷（已複製 '+packed.done.size+' 卷）';
+  $('#smNext').textContent=packed.next<packed.chunks.length?'複製第 '+(packed.next+1)+' / '+packed.chunks.length+' 卷':'全部複製過了（再按從第 1 卷重來）'}
+$('#smNext').addEventListener('click',async()=>{if(!packed)return;if(packed.next>=packed.chunks.length)packed.next=0;await copyChunk(packed.next);drawSmPack()});
+$('#smDone').addEventListener('click',()=>{if(!packed)return;const e=U.envs.find(x=>x.id===packed.env);Object.keys(packed.imgs).forEach(f=>{if(e.paths)delete e.paths[f]});e.sent={verId:packed.verId,at:Date.now(),imgs:Object.assign({},e.sent?e.sent.imgs:{},packed.imgs)};packed=null;saveU();drawSmPack();renderSmEnvs();toast(e.name+' 已記錄為最新')});
+$('#smRecv').addEventListener('click',()=>{copyText(receiverText());toast('收件台已複製：到 VDI 開記事本貼上，另存成 收件台.html（UTF-8），再用瀏覽器打開')});
 
 /* ================= 範例與啟動 ================= */
 function sampleImg(label,hue){const c=document.createElement('canvas');c.width=800;c.height=500;const g=c.getContext('2d');const gr=g.createLinearGradient(0,0,800,500);gr.addColorStop(0,'hsl('+hue+',40%,36%)');gr.addColorStop(1,'hsl('+(hue+30)+',35%,60%)');g.fillStyle=gr;g.fillRect(0,0,800,500);g.fillStyle='rgba(255,255,255,.92)';g.font='bold 44px sans-serif';g.textAlign='center';g.fillText(label,400,250);g.font='24px sans-serif';g.fillText('範例圖片',400,295);return c.toDataURL('image/jpeg',0.8)}
