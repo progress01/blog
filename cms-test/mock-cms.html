@@ -1,0 +1,26 @@
+<!doctype html><html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>模擬後台（測試用）</title>
+<style>body{font-family:"Microsoft JhengHei",sans-serif;margin:0;background:#f4f6f8;color:#222}.top{background:#17a2b8;color:#fff;padding:10px 16px}.warn{background:#fff3cd;padding:8px 16px;border-bottom:1px solid #e0c97a}main{padding:16px;max-width:980px}
+.f{display:flex;gap:12px;margin:10px 0;align-items:flex-start}.f>label{width:110px;text-align:right;color:#555;flex-shrink:0}input[type=text]{width:420px;padding:4px}table{border-collapse:collapse;background:#fff}td,th{border:1px solid #ccc;padding:6px 10px;font-size:14px;vertical-align:top}
+.btn{background:#17a2b8;color:#fff;border:0;padding:4px 10px;border-radius:3px}.red{color:#c00;font-size:13px}iframe{border:1px solid #ccc;background:#fff;width:600px;height:120px}</style></head><body>
+<div class="top">環境部環境管理署全球資訊網 ｜ 網站單元維護 &gt; COP31 &gt; 講師</div>
+<div class="warn">⚠ 這是測試用的模擬後台，不是真的 CMS。用來練習「Ctrl+A、Ctrl+C 複製整頁 → 貼回收件台自動配對圖片路徑」。</div>
+<main>
+<div class="f"><label>類型</label><div><label><input type="radio" checked> 一般資料格式</label> <label><input type="radio"> 檔案下載式</label> <label><input type="radio"> URL連結式</label></div></div>
+<div class="f"><label>*標題</label><input type="text" value="【測試】講師頁"></div>
+<div class="f"><label>Meta Description</label><input type="text" placeholder="摘要描述，建議勿超過 150 字元"></div>
+<div class="f"><label>列表顯示圖</label><button class="btn" type="button">請選擇</button></div>
+<div class="f"><label>*版面呈現</label><div><label><input type="radio" checked> 編輯器編輯</label> <label><input type="radio"> 視覺化編輯</label></div></div>
+<div class="f"><label>內容描述</label><div><div class="red">請先將上稿文字複製貼至「記事本.txt」清除格式後，再複製貼回編輯框。</div><iframe srcdoc="<p style='font-family:sans-serif'>（這裡是 CKEditor 的編輯區，真的後台在這裡貼原始碼）</p>"></iframe></div></div>
+<div class="f"><label>內嵌檔案</label><div><button class="btn" type="button">請選擇</button>
+<div class="red">（需複製連結並置入編輯器，方會顯示在前台）<br>圖片請以jpg、jpeg、png、svg、gif、tiff、odg、webp格式上傳</div>
+<table><tr><th></th><th>名稱/路徑</th><th>alt標籤</th><th>刪除</th></tr>
+<tr><td><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='40'%3E%3Crect width='60' height='40' fill='%2389c'/%3E%3C/svg%3E" alt=""></td><td>哪些紙可以丟馬桶？.webp<br>/img/EMA/aaa11bbb.k53.webp<br><button type="button">複製</button></td><td><input type="text" value="哪些紙可以丟馬桶示意圖" style="width:160px"></td><td><button type="button">刪除</button></td></tr>
+<tr><td><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='40'%3E%3Crect width='60' height='40' fill='%235a9'/%3E%3C/svg%3E" alt=""></td><td>forum-1109.jpg<br>/img/EMA/ccc22ddd.x1y.jpg<br><button type="button">複製</button></td><td><input type="text" value="" style="width:160px"></td><td><button type="button">刪除</button></td></tr>
+<tr><td><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='40'%3E%3Crect width='60' height='40' fill='%23c96'/%3E%3C/svg%3E" alt=""></td><td>meeting-photo.jpg<br>/img/EMA/eee33fff.z9q.jpg<br><button type="button">複製</button></td><td><input type="text" value="" style="width:160px"></td><td><button type="button">刪除</button></td></tr>
+</table></div></div>
+<div class="f"><label>相關附件</label><button class="btn" type="button">請選擇</button></div>
+<div class="f"><label>相關圖片</label><div><button class="btn" type="button">請選擇</button><table><tr><th>名稱/路徑</th><th>alt標籤</th><th>狀態</th></tr><tr><td>海報.webp<br>/img/EMA/ggg44hhh.p0o.webp</td><td><input type="text" value="海報" style="width:120px"></td><td>啟用</td></tr></table></div></div>
+<div class="f"><label>*發布單位</label><select><option>環境部及所屬機關單位</option></select></div>
+<div class="f"><label>狀態</label><div><label><input type="radio"> 發布</label> <label><input type="radio" checked> 不公開</label></div></div>
+<div class="f"><label></label><div><button class="btn" type="button">預覽</button> <button class="btn" type="button">儲存</button> <button type="button">取消</button></div></div>
+</main></body></html>

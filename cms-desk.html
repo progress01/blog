@@ -832,8 +832,8 @@ function renderImgs(){const sp=U.imgSpec||(U.imgSpec={ratio:'free',w:1200});$('#
   $$('[data-crop]').forEach(b=>b.addEventListener('click',()=>cropModal(+b.dataset.crop)));
   $$('[data-tag]').forEach(b=>b.addEventListener('click',()=>copyText('<img src="'+tokName(U.images[+b.dataset.tag].file)+'" alt="">')));
   $$('[data-idel]').forEach(b=>armed(b,()=>{U.images.splice(+b.dataset.idel,1);saveU();renderImgs();refreshBadge()}));
-  $$('[data-ren]').forEach(el=>el.addEventListener('change',()=>{const im=U.images[+el.dataset.ren];const nf=el.value.trim().replace(/[^\w\-.]/g,'-');if(!nf||U.images.some(x=>x!==im&&x.file===nf)){toast('檔名重複或空白，已還原');el.value=im.file;return}
-    U.html=U.html.split('{{BASE}}'+im.file).join('{{BASE}}'+nf);im.file=nf;saveU();renderImgs();refreshBadge();toast('已改名，原始碼裡的引用也一起改了')}))}
+  $$('[data-ren]').forEach(el=>el.addEventListener('change',()=>setTimeout(()=>{const im=U.images[+el.dataset.ren];const nf=el.value.trim().replace(/[^\w\-.]/g,'-');if(!nf||U.images.some(x=>x!==im&&x.file===nf)){toast('檔名重複或空白，已還原');el.value=im.file;return}
+    U.html=U.html.split('{{BASE}}'+im.file).join('{{BASE}}'+nf);im.file=nf;saveU();renderImgs();refreshBadge();toast('已改名，原始碼裡的引用也一起改了')},0)))}
 $('#iFmt').addEventListener('change',e=>{G.fmt=e.target.value;saveG()});
 $('#iRatio').addEventListener('change',e=>{const v=e.target.value;U.imgSpec.ratio=v;if(v==='custom'){U.imgSpec.cw=U.imgSpec.cw||1200;U.imgSpec.ch=U.imgSpec.ch||630}renderImgs();if(U.images.length)rerenderAll('已依新比例重新裁切 N 張圖片（置中）',true);else saveU()});
 const onCustom=()=>{U.imgSpec.cw=Math.max(1,+$('#iCW').value||1);U.imgSpec.ch=Math.max(1,+$('#iCH').value||1);renderImgs();if(U.images.length)rerenderAll('已依 '+U.imgSpec.cw+':'+U.imgSpec.ch+' 重新裁切 N 張圖片',true);else saveU()};$('#iCW').addEventListener('change',onCustom);$('#iCH').addEventListener('change',onCustom);
