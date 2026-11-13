@@ -20,7 +20,9 @@ textarea.code{font:13px/1.5 Consolas,Monaco,monospace;resize:vertical;min-height
 .hint{font-size:12.5px;color:var(--muted);margin:0 0 9px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:15px 2px}.note{font-size:13px;color:var(--muted)}
 .message{padding:9px 13px;border:1px solid #cbd8e9;background:#f7fbff;border-radius:9px;font-size:13.5px}.message.ok{color:#125a40;border-color:#b9e1d0;background:#f0fcf5}.message.warn{color:#8b4a15;background:#fffbef;border-color:#e7d3ac}.message.bad{color:#8c1d2c;background:#fff3f4;border-color:#ecc3ca}
-.hidden{display:none!important}.results{margin-top:8px}
+.hidden{display:none!important}
+.modes{border:1px solid #e0e8f1;border-radius:9px;margin:8px 0 0;padding:6px 10px;display:flex;flex-direction:column;gap:2px}.modes label{display:flex;gap:6px;align-items:baseline;font-size:13.5px;flex-wrap:wrap}.modes .mini{margin-left:4px}
+.imgt{width:100%;border-collapse:collapse;font-size:13px}.imgt th,.imgt td{border-bottom:1px solid #e6edf5;padding:6px 4px;text-align:left;vertical-align:top}.imgt th{color:var(--muted);font-weight:500;font-size:12px}.imgt input{padding:5px 7px;font:12.5px Consolas,monospace;border-radius:6px}.imgt td:last-child{white-space:nowrap}.imgt .old{font:11.5px Consolas,monospace;color:var(--muted);word-break:break-all}.tw{overflow-x:auto}.results{margin-top:8px}
 .bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}.bar h2{margin:0;font-size:19px}
 .chips{display:flex;gap:7px;flex-wrap:wrap}.chip{padding:4px 9px;background:#eef4fa;border-radius:20px;color:#47617f;font-size:12px}.chip.good{background:#e4f7ed;color:#16663d}.chip.bad{background:#fde8eb;color:#a7283e}.chip.warn{background:#fff3dc;color:#8b4a15}
 .checks{padding:10px 13px;background:#fff9ed;border:1px solid #ebd7aa;border-radius:8px;margin-bottom:11px;font-size:13px}.checks ul{margin:5px 0 0;padding-left:20px}.checks li{margin:3px 0}
@@ -43,7 +45,11 @@ kbd{background:#f5f8fa;padding:1px 5px;border:1px solid #dce4ee;border-radius:4p
 <div class="grid">
 <section class="box"><h2><span class="num">目前</span> 目前版本</h2><p class="hint">後台 CKEditor 切到「原始碼」，全選複製貼上。也可以貼上一篇類似稿子的原始碼當範本。</p><textarea id="cur" class="code" spellcheck="false" placeholder="貼上目前的 CKEditor 原始碼…"></textarea></section>
 <section class="box"><h2><span class="num">新版</span> 改好的版本，或新資料</h2><p class="hint">貼自己改好的原始碼、AI 的回覆（整段貼，會自動抓出原始碼），或新資料（文字、Excel 幾格、email）。是新資料的話，按下面的鈕交給 AI。</p><textarea id="nxt" class="code" spellcheck="false" placeholder="貼上改好的原始碼、AI 回覆，或新資料…"></textarea>
-<div class="row" style="margin-top:8px"><button id="aiBtn" class="small">把右邊當成新資料，複製給 AI 的指令</button><span id="aiMsg" class="mini"></span></div></section>
+<fieldset class="modes" id="modes"><legend class="mini">右邊貼的是（按比對時會自動判斷，判斷錯可以改）</legend>
+<label><input type="radio" name="mode" value="final"> <b>改好的完整版本</b><span class="mini">自己改的、AI 回覆、其他工具產出的</span></label>
+<label><input type="radio" name="mode" value="aaab"> <b>新資料的原始碼</b><span class="mini">另一頁的 CKEditor 原始碼，自動套進左邊的版型（雙欄換稿）</span></label>
+<label><input type="radio" name="mode" value="data"> <b>文字資料</b><span class="mini">email、Excel、Word 文字，交給 AI 改</span></label></fieldset>
+<div class="row" id="aiRow" style="margin-top:8px"><button id="aiBtn" class="small">複製給 AI 的指令</button><span id="aiMsg" class="mini"></span></div></section>
 </div>
 <div class="actions"><button class="primary" id="run">比對並檢查</button><button id="swap">交換左右</button><button id="clear">清空</button><span class="note">新圖片在原始碼裡先寫檔名（例如 <code>src="wang.jpg"</code>），上傳後再自動換成路徑。</span></div>
 <div id="message" class="message hidden" role="status"></div>
@@ -52,7 +58,7 @@ kbd{background:#f5f8fa;padding:1px 5px;border:1px solid #dce4ee;border-radius:4p
 <div id="checks" class="checks hidden"></div>
 <div class="editor-layout">
 <div>
-<section class="section" id="imgSec"><h3>圖片路徑</h3><div id="imgList"></div>
+<section class="section" id="imgSec"><h3>要換的圖片</h3><div id="imgList"></div>
 <div id="imgFill"><p class="mini">圖片上傳到「內嵌檔案」後，在後台的編輯頁按 <kbd>Ctrl</kbd>+<kbd>A</kbd>、<kbd>Ctrl</kbd>+<kbd>C</kbd>，點下面的框按 <kbd>Ctrl</kbd>+<kbd>V</kbd>，會用檔名自動換成真正的路徑。</p><textarea id="paths" rows="3" placeholder="在這裡 Ctrl+V"></textarea></div></section>
 <section class="section"><h3>改了哪裡</h3><p class="mini">綠色是新增、紅色是刪除。右邊預覽裡黃框是改到的地方。</p><div id="diff" class="diff"></div></section>
 <section class="section" id="qSec" hidden><h3>AI 想確認的事</h3><ul id="qList" class="mini" style="margin:0;padding-left:18px"></ul></section>
@@ -113,6 +119,263 @@ function pairsFromHtml(html){const pairs=[],all=new Set();if(!html)return{pairs,
 const EXT='jpe?g|png|gif|webp|svg|tiff?|odg|bmp';
 const IMGRE=new RegExp('\\.(?:'+EXT+')(?:[?#][^\\s"\'<>]*)?$','i');
 const stripOrigin=u=>u.replace(/^https?:\/\/[^\/]+/i,'');
+
+const VOID_TAGS=new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']);
+let state=null;
+function escapeText(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escapeAttr(s,quote='"'){let x=escapeText(s);return quote==='\''?x.replace(/'/g,'&#39;'):x.replace(/"/g,'&quot;');}
+function tagScan(html){const out=[];let i=0;while(i<html.length){let st=html.indexOf('<',i);if(st<0)break;
+ if(html.startsWith('<!--',st)){let e=html.indexOf('-->',st+4);if(e<0)break;out.push({start:st,end:e+3,kind:'comment',text:html.slice(st,e+3)});i=e+3;continue;}
+ let j=st+1,q='';for(;j<html.length;j++){const c=html[j];if(q){if(c===q)q='';}else if(c==='"'||c==="'")q=c;else if(c==='>')break;}
+ if(j>=html.length)break;const raw=html.slice(st,j+1);const m=raw.match(/^<\s*(\/?)\s*([a-zA-Z][\w:-]*)\b/);if(m){out.push({start:st,end:j+1,kind:m[1]?'close':'open',tag:m[2].toLowerCase(),text:raw,void:VOID_TAGS.has(m[2].toLowerCase())||/\/\s*>$/.test(raw)});}
+ i=j+1;}return out;}
+function parseRaw(html){const root={tag:'#root',start:0,openEnd:0,closeStart:html.length,end:html.length,children:[],parent:null};const stack=[root];const nodes=[];for(const token of tagScan(html)){
+ if(token.kind==='open'){const parent=stack[stack.length-1];const n={tag:token.tag,start:token.start,openEnd:token.end,closeStart:token.end,end:token.end,openTag:token.text,closeTag:'',children:[],parent,void:token.void};parent.children.push(n);nodes.push(n);if(!token.void)stack.push(n);}else if(token.kind==='close'){
+ let idx=stack.length-1;while(idx>0&&stack[idx].tag!==token.tag)idx--;if(idx===0)continue;
+ for(let x=stack.length-1;x>=idx;x--){const n=stack[x];n.closeStart=token.start;n.end=token.end;n.closeTag=token.text;}stack.length=idx;
+ }}for(const n of stack.slice(1)){n.closeStart=html.length;n.end=html.length;}return {html,root,nodes};}
+function innerHTML(parsed,n){return parsed.html.slice(n.openEnd,n.closeStart);}
+function contentText(inner){const t=document.createElement('template');t.innerHTML=inner;return (t.content.textContent||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();}
+function nodeText(parsed,n){return contentText(innerHTML(parsed,n));}
+function normalized(s){return String(s||'').replace(/\s+/g,'').replace(/[：:]/g,'').trim();}
+function direct(node,tag){return node.children.filter(n=>n.tag===tag);}
+function findListAfter(h){if(!h||!h.parent)return null;const a=h.parent.children;const i=a.indexOf(h);for(let j=i+1;j<a.length;j++){const n=a[j];if(/^h[1-6]$/.test(n.tag))return null;if(n.tag==='ul'||n.tag==='ol')return n;}return null;}
+function sectionsOf(parsed){
+ const lists=parsed.nodes.filter(n=>(n.tag==='ul'||n.tag==='ol')&&!isIn(n,'li'));
+ return lists.map((ul,i)=>{
+  let h=null;
+  if(ul.parent){const siblings=ul.parent.children,at=siblings.indexOf(ul);
+   for(let j=at-1;j>=0;j--){const x=siblings[j];if(/^h[1-6]$/.test(x.tag)){h=x;break;}if(['ul','ol','p','table','div','figure'].includes(x.tag))break;}}
+  const items=direct(ul,'li').map(n=>({node:n,text:nodeText(parsed,n),rich:/(<\s*(?:a|strong|em|span|div|ul|ol|table)\b)/i.test(innerHTML(parsed,n))}));
+  return {name:h?nodeText(parsed,h):'未命名清單 '+(i+1),h,ul,items};
+ });
+}
+function getAttribute(tag,name){const re=new RegExp('(?:^|\\s)'+name+'\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\'|([^\\s>]+))','i');const m=tag.match(re);if(!m)return '';const holder=document.createElement('textarea');holder.innerHTML=(m[1]??m[2]??m[3]??'');return holder.value;}
+function putAttribute(tag,name,value){const re=new RegExp('(\\s+'+name+'\\s*=\\s*)(?:"([^"]*)"|\'([^\']*)\'|([^\\s>]+))','i');const match=tag.match(re);if(match){const quote=match[2]!==undefined?'"':match[3]!==undefined?"'":'"';return tag.replace(re,()=>match[1]+quote+escapeAttr(value,quote)+quote);}return tag.replace(/\s*\/?>$/,tail=>' '+name+'="'+escapeAttr(value)+'"'+tail);}
+function relativeMoenv(s){const val=String(s||'').trim();try{const u=new URL(val);if(['https:','http:'].includes(u.protocol)&&u.hostname.toLowerCase()==='www.moenv.gov.tw'&&!u.username&&!u.password){return u.pathname+u.search+u.hash;}}catch(e){}return val;}
+function videoBlock(parsed,node){
+ // 只取最接近影片的獨立嵌入容器，避免把整頁文字一起複製。
+ let p=node.parent;
+ if(p && p.tag==='div' && /(?:^|\s)(?:embedBox[\w-]*|video[\w-]*)(?:\s|$)/i.test(getAttribute(p.openTag,'class'))){
+  const others=p.children.filter(n=>n!==node);
+  const surrounds=parsed.html.slice(p.openEnd,node.start)+parsed.html.slice(node.end,p.closeStart);
+  if(!others.length && !surrounds.trim())return parsed.html.slice(p.start,p.end);
+ }
+ return parsed.html.slice(node.start,node.end);
+}
+function videoRemoveNode(parsed,node){
+ const p=node.parent;
+ if(p && p.tag==='div' && /(?:^|\s)(?:embedBox[\w-]*|video[\w-]*)(?:\s|$)/i.test(getAttribute(p.openTag,'class'))){
+  const others=p.children.filter(n=>n!==node);
+  const surrounds=parsed.html.slice(p.openEnd,node.start)+parsed.html.slice(node.end,p.closeStart);
+  if(!others.length&&!surrounds.trim())return p;
+ }
+ return node;
+}
+function videoUrl(s){
+ let raw=String(s||'').trim();
+ // 有些從 Markdown 表格複製的影片網址會變成 [網址](網址)。還原為純網址。
+ const md=raw.match(/^\[(https?:\/\/[^\]]+)\]\((https?:\/\/[^)]+)\)$/);
+ if(md && md[1]===md[2])raw=md[2];
+ if(!raw)return '';
+ let u;try{u=new URL(raw);}catch(e){throw Error('影片網址不是完整 URL：'+raw);}
+ if(!['https:','http:'].includes(u.protocol)||u.username||u.password)throw Error('影片僅支援 HTTP(S) 網址，請勿貼入 javascript: 等特殊路徑。');
+ const h=u.hostname.toLowerCase();
+ if(['youtu.be','www.youtu.be'].includes(h)){
+  const id=u.pathname.split('/').filter(Boolean)[0];if(!/^[\w-]{11}$/.test(id))throw Error('YouTube 影片 ID 格式不正確。');
+  return 'https://www.youtube.com/embed/'+id;
+ }
+ if(['youtube.com','www.youtube.com','m.youtube.com','youtube-nocookie.com','www.youtube-nocookie.com'].includes(h)){
+  let id='';
+  if(u.pathname==='/watch')id=u.searchParams.get('v')||'';
+  else {const m=u.pathname.match(/^\/(?:embed|shorts|live)\/([\w-]{11})(?:\/|$)/);if(m)id=m[1];}
+  if(id){if(!/^[\w-]{11}$/.test(id))throw Error('YouTube 影片 ID 格式不正確。');
+   if(u.pathname.startsWith('/embed/') && u.protocol==='https:')return raw;
+   return 'https://www.youtube.com/embed/'+id;
+  }
+ }
+ if(['vimeo.com','www.vimeo.com'].includes(h)&&/^\/\d+\/?$/.test(u.pathname))return 'https://player.vimeo.com/video/'+u.pathname.replace(/\//g,'');
+ return raw;
+}
+function firstTitle(parsed,groupHeadings){
+ // CKEditor 標題不一定是 h3：也可能是 <span class="h5 green_b"> 或 <p class="text-center fw-bold">。
+ const c=parsed.nodes.filter(n=>!groupHeadings.has(n)&&!isIn(n,'li')&&nodeText(parsed,n));
+ const scored=c.map(n=>{const cls=getAttribute(n.openTag,'class').toLowerCase();let score=0;
+  if(/^h[1-6]$/.test(n.tag))score=100;
+  else if(n.tag==='span'&&/(?:^|\s)h[1-6](?:\s|$)/.test(cls))score=90;
+  else if(n.tag==='p'&&/(text-center|fw-bold|\bh[1-6]\b|title)/.test(cls))score=80;
+  else if(n.tag==='strong'&&n.parent?.tag==='p'&&n.parent?.parent?.tag==='#root')score=30;
+  return {n,score};}).filter(x=>x.score>0);
+ scored.sort((a,b)=>b.score-a.score||a.n.start-b.n.start);
+ return scored[0]?.n||null;
+}
+function paragraphGroups(parsed,title){
+ const byParent=new Map();
+ for(const n of parsed.nodes){
+  if(n.tag!=='p'||n===title||isIn(n,'li')||isIn(n,'figure'))continue;
+  if(!nodeText(parsed,n))continue;
+  let a=byParent.get(n.parent);if(!a){a=[];byParent.set(n.parent,a);}a.push(n);
+ }
+ return [...byParent].map(([parent,paras])=>{
+  const length=paras.reduce((z,n)=>z+nodeText(parsed,n).length,0);
+  const cls=getAttribute(parent.openTag||'','class');
+  const boost=/(?:words_content|txtpic|article|content|\btxt\b)/i.test(cls)?500:0;
+  return {parent,paras,length,score:length+paras.length*15+boost};
+ }).sort((a,b)=>b.score-a.score);
+}
+function dateEntry(text){
+ return /^(?:民國\s*)?(?:(?:19|20)\d{2}[\/.-]\d{1,2}[\/.-]\d{1,2}|\d{2,4}年\d{1,2}月(?:\d{1,2}日)?)/.test(String(text||'').trim());
+}
+function extractDoc(parsed){
+ const sections=sectionsOf(parsed),groups=new Set(sections.map(x=>x.h));
+ const title=firstTitle(parsed,groups);
+ const images=parsed.nodes.filter(n=>n.tag==='img').map(n=>({node:n,src:getAttribute(n.openTag,'src'),alt:getAttribute(n.openTag,'alt')}));
+ const groupsP=paragraphGroups(parsed,title);
+ const paras=groupsP.flatMap(g=>g.paras.map(node=>({node,text:nodeText(parsed,node),rich:node.children.length>0})));
+ const videos=parsed.nodes.filter(n=>n.tag==='iframe'&&getAttribute(n.openTag,'src')).map(n=>({node:n,src:getAttribute(n.openTag,'src'),title:getAttribute(n.openTag,'title'),block:videoBlock(parsed,n)}));
+ return {sections,title,titleText:title?nodeText(parsed,title):'',images,paras,body:groupsP[0]||null,bodyGroupCount:groupsP.length,videos,datedItems:groupsP[0]?.paras.filter(n=>dateEntry(nodeText(parsed,n))).length||0};
+}
+function groupIsContiguous(parsed,group){
+ if(!group||group.paras.length<2)return true;
+ for(let i=0;i<group.paras.length-1;i++){
+  const between=parsed.html.slice(group.paras[i].end,group.paras[i+1].start);
+  if(between.trim())return false;
+ }
+ return true;
+}
+function isIn(n,tag){for(let p=n.parent;p;p=p.parent)if(p.tag===tag)return true;return false;}
+function formatInnerLike(original,value){let leading=original.match(/^\s*/)?.[0]||'';let trailing=original.match(/\s*$/)?.[0]||'';return leading+escapeText(value)+trailing;}
+function listReplacement(tar,section,values){
+ if(section.mode==='insert'){
+  const src=state.src,ul=section.source.ul,items=direct(ul,'li');
+  const opening=src.html.slice(ul.start,ul.openEnd),closing=src.html.slice(ul.closeStart,ul.end);
+  const sep=items.length>1?src.html.slice(items[0].end,items[1].start):'\n';
+  const divider=/^\s*$/.test(sep)?sep:'\n';
+  const prefix=items.length?src.html.slice(ul.openEnd,items[0].start):'\n';
+  const suffix=items.length?src.html.slice(items[items.length-1].end,ul.closeStart):'\n';
+  const rows=values.map((v,i)=>{
+   const ex=items[Math.min(i,items.length-1)];
+   const o=ex?src.html.slice(ex.start,ex.openEnd):'<li>',c=ex?src.html.slice(ex.closeStart,ex.end):'</li>';
+   const inner=ex?src.html.slice(ex.openEnd,ex.closeStart):'';
+   return o+(section.rawItems[i]!==null?section.rawItems[i]:formatInnerLike(inner,v))+c;
+  });
+  const list=opening+prefix+rows.join(divider)+suffix+closing;
+  if(section.source.h&&!section.targetHeading){const h=section.source.h;return src.html.slice(h.start,h.end)+'\n'+list;}
+  return list;
+ }
+ const u=section.target.ul;const nodes=direct(u,'li');const raw=tar.html;if(!nodes.length){const indent='\n  ';return indent+values.map(x=>'  <li>'+escapeText(x)+'</li>').join(indent)+'\n';}
+ const prefix=raw.slice(u.openEnd,nodes[0].start);const suffix=raw.slice(nodes[nodes.length-1].end,u.closeStart);const sep=nodes.length>1?raw.slice(nodes[0].end,nodes[1].start):(/\n/.test(prefix)?prefix:'\n');const divider=/^\s*$/.test(sep)?sep:'\n';
+ const parts=values.map((v,i)=>{const ex=nodes[Math.min(i,nodes.length-1)];const tagStart=raw.slice(ex.start,ex.openEnd);const tagEnd=raw.slice(ex.closeStart,ex.end);const inner=raw.slice(ex.openEnd,ex.closeStart);return tagStart+(section.rawItems[i]!==null?section.rawItems[i]:formatInnerLike(inner,v))+tagEnd;});return prefix+parts.join(divider)+suffix;
+}
+function bodyReplacement(tar,body){
+ const nodes=body.target.paras,raw=tar.html;
+ if(!nodes.length)return {start:-1,end:-1,replacement:''};
+ let sep=nodes.length>1?raw.slice(nodes[0].end,nodes[1].start):'\n\n';
+ if(sep.trim())throw Error('主要內文中包含非段落元素，已停止輸出。');
+ const parts=body.items.map((it,i)=>{
+  const ex=nodes[Math.min(i,nodes.length-1)];
+  const opening=raw.slice(ex.start,ex.openEnd),closing=raw.slice(ex.closeStart,ex.end);
+  const content=!it.changed?it.originalInner:(it.rich?it.text:escapeText(it.text));
+  return opening+content+closing;
+ });
+ return {start:nodes[0].start,end:nodes[nodes.length-1].end,replacement:parts.join(sep)};
+}
+function applyEdits(){if(!state)return '';const {tar,fields}=state;const edits=[];function add(start,end,replacement,label){if(start<0||end<start)return;edits.push({start,end,replacement,label});}
+ if(fields.title)add(fields.title.target.openEnd,fields.title.target.closeStart,formatInnerLike(innerHTML(tar,fields.title.target),fields.title.value),'title');
+ fields.sections.forEach(s=>{
+  if(s.mode==='insert'){
+   const where=s.targetHeading?.end ?? (state.tarD.body?.parent?.closeStart??tar.html.length);
+   add(where,where,'\n'+listReplacement(tar,s,s.items)+'\n','insert list '+s.name);
+  }else add(s.target.ul.openEnd,s.target.ul.closeStart,listReplacement(tar,s,s.items),'list '+s.name);
+ });
+ fields.images.forEach(im=>{let tag=im.target.node.openTag;tag=putAttribute(tag,'src',relativeMoenv(im.src));tag=putAttribute(tag,'alt',im.alt);add(im.target.node.start,im.target.node.openEnd,tag,'img');});
+ if(fields.body){const b=bodyReplacement(tar,fields.body);add(b.start,b.end,b.replacement,'all paragraphs');}
+ const newBlocks=[];
+ fields.videos.forEach((v,i)=>{
+  if(v.mode==='insert'){
+   if(v.enabled && v.src.trim()){
+    const src=videoUrl(v.src), title=escapeAttr(v.title);
+    let block=v.sourceBlock;
+    if(block){ // 複製 AA 原有嵌入容器，只改寫第一個 iframe 的 src / title，原樣保留 class、loading 等屬性。
+     const m=block.match(/<iframe\b[^>]*>/i);
+     if(m){let tag=putAttribute(m[0],'src',src);tag=putAttribute(tag,'title',v.title);block=block.slice(0,m.index)+tag+block.slice(m.index+m[0].length);}
+     else block='';
+    }
+    if(!block)block='<div class="embedBox1">\n <iframe loading="lazy" src="'+escapeAttr(src)+'" title="'+title+'"></iframe>\n</div>';
+    newBlocks.push(block);
+   }
+  }else{
+   const node=v.target.node;
+   if(!v.enabled){
+    const removeNode=videoRemoveNode(tar,node);add(removeNode.start,removeNode.end,'','remove video '+(i+1));
+   }else{
+    const src=videoUrl(v.src);
+    let tag=putAttribute(node.openTag,'src',src);tag=putAttribute(tag,'title',v.title);
+    add(node.start,node.openEnd,tag,'video '+(i+1));
+   }
+  }
+ });
+ if(newBlocks.length){
+  const bodyEnd=tar.html.search(/<\/body\s*>/i);
+  const insertion=bodyEnd>=0?bodyEnd:tar.html.length;
+  add(insertion,insertion,'\n'+newBlocks.join('\n')+'\n','new video blocks');
+ }
+ edits.sort((a,b)=>b.start-a.start);let last=tar.html.length,output=tar.html;for(const e of edits){if(e.end>last){throw Error('偵測到 HTML 範圍重疊，已停止輸出以避免破壞版型：'+e.label);}output=output.slice(0,e.start)+e.replacement+output.slice(e.end);last=e.start;}return output;}
+/* 雙欄換稿（AA→AB）核心：沿用原工具邏輯，改成不碰畫面的函式 */
+function transplant(sourceHtml,targetHtml){
+ const src=parseRaw(sourceHtml),tar=parseRaw(targetHtml);
+ if(!src.nodes.length||!tar.nodes.length)return {error:'新資料或目前版本不是可辨識的 HTML 原始碼。'};
+ const srcD=extractDoc(src),tarD=extractDoc(tar),warnings=[],critical=[];
+ const fields={title:null,sections:[],images:[],videos:[],paras:[],body:null};
+ if(srcD.title&&tarD.title){fields.title={target:tarD.title,value:srcD.titleText,from:tarD.titleText};}
+ else if(srcD.title&&!tarD.title)critical.push('新資料有主標題，但目前版本找不到可替換的標題位置。');
+ else if(!srcD.title&&tarD.title)critical.push('目前版本有主標題，但新資料找不到相應標題，不能沿用舊人名。');
+ const used=new Set();let different=0;
+ for(let ti=0;ti<tarD.sections.length;ti++){
+  const t=tarD.sections[ti];let idx=srcD.sections.findIndex((s,i)=>!used.has(i)&&normalized(s.name)===normalized(t.name));
+  if(idx<0&&srcD.sections.length===tarD.sections.length&&srcD.sections[ti]&&!used.has(ti)){idx=ti;warnings.push(`「${t.name}」沒有同名標題，暫用第 ${ti+1} 組清單，請人工確認。`);}
+  if(idx<0){critical.push(`目前版本的清單「${t.name}」在新資料裡找不到對應，不能保留舊清單。`);continue;}
+  used.add(idx);const group=srcD.sections[idx];
+  fields.sections.push({name:t.name,target:t,source:group,items:group.items.map(i=>i.text),rawItems:group.items.map(i=>innerHTML(src,i.node)),oldCount:t.items.length,newCount:group.items.length});
+ }
+ srcD.sections.forEach((t,i)=>{if(used.has(i))return;
+  const targetHeading=tar.nodes.find(n=>/^h[1-6]$/.test(n.tag)&&normalized(nodeText(tar,n))===normalized(t.name));
+  const sourceBlock=(t.h&&!targetHeading?src.html.slice(t.h.start,t.ul.end):src.html.slice(t.ul.start,t.ul.end));
+  fields.sections.push({mode:'insert',name:t.name,target:null,source:t,items:t.items.map(x=>x.text),rawItems:t.items.map(x=>innerHTML(src,x.node)),oldCount:0,newCount:t.items.length,sourceBlock,targetHeading});
+  warnings.push(`新資料有「${t.name}」${t.items.length} 筆、目前版本沒有這個清單，已加入；請確認位置。`);});
+ if(srcD.body&&tarD.body){
+  if(!groupIsContiguous(tar,tarD.body))critical.push('目前版本的主要段落之間夾著其他區塊，不能整組覆蓋，需要人工調整。');
+  if(srcD.bodyGroupCount>1)critical.push(`新資料有 ${srcD.bodyGroupCount} 組分散的段落，不能只取最大一組。`);
+  if(tarD.bodyGroupCount>1)warnings.push(`目前版本有 ${tarD.bodyGroupCount} 組段落，這次只替換主要內文，請留意其他段落是否為舊資料。`);
+  fields.body={target:tarD.body,items:srcD.body.paras.map(n=>({text:nodeText(src,n),originalInner:innerHTML(src,n),rich:n.children.length>0,changed:false})),oldCount:tarD.body.paras.length};
+ }else if(srcD.body&&!tarD.body)critical.push(`新資料有 ${srcD.body.paras.length} 段內文，但目前版本找不到安全的主要內文區。`);
+ else if(!srcD.body&&tarD.body){
+  if(srcD.sections.length){fields.body={target:tarD.body,items:[],oldCount:tarD.body.paras.length};warnings.push('新資料只有清單沒有段落，已移除舊內文。');}
+  else critical.push(`目前版本有 ${tarD.body.paras.length} 段舊內文，但新資料沒有對應內容。`);
+ }
+ if(srcD.body&&srcD.datedItems>=2)warnings.push(`新資料有 ${srcD.datedItems} 筆日期開頭的事蹟，保留成獨立段落。`);
+ if(srcD.images.length!==tarD.images.length)critical.push(`圖片數量不同：新資料 ${srcD.images.length} 張、目前版本 ${tarD.images.length} 張，要確認怎麼增刪圖片位置。`);
+ for(let i=0;i<Math.min(srcD.images.length,tarD.images.length);i++)fields.images.push({target:tarD.images[i],src:relativeMoenv(srcD.images[i].src),alt:srcD.images[i].alt});
+ const sVideo=srcD.videos,tVideo=tarD.videos;
+ for(let i=0;i<Math.max(sVideo.length,tVideo.length);i++){
+  if(i<tVideo.length){const has=i<sVideo.length;fields.videos.push({mode:'replace',target:tVideo[i],src:has?sVideo[i].src:tVideo[i].src,title:has?sVideo[i].title:tVideo[i].title,enabled:has,unmatched:!has});}
+  else if(i<sVideo.length)fields.videos.push({mode:'insert',target:null,src:sVideo[i].src,title:sVideo[i].title,sourceBlock:sVideo[i].block,enabled:true});
+ }
+ if(sVideo.length<tVideo.length)warnings.push(`新資料少了 ${tVideo.length-sVideo.length} 支影片，已移除舊影片。`);
+ if(sVideo.length>tVideo.length)warnings.push(`新資料多了 ${sVideo.length-tVideo.length} 支影片，已加在結尾，請檢查位置。`);
+ state={src,tar,srcD,tarD,fields,warnings,critical,different};
+ let text='';try{text=applyEdits()}catch(e){return {error:'換稿失敗：'+e.message,critical,warnings}}
+ const errors=[];
+ try{const np=parseRaw(text),out=extractDoc(np),b=fields.body;
+  if(b&&(out.body?.paras.length||0)!==b.items.length)errors.push(`段落數不符：應有 ${b.items.length} 段，實際 ${out.body?.paras.length||0} 段。`);
+  for(const section of fields.sections){const s=out.sections.find(x=>normalized(x.name)===normalized(section.name));if(!s||s.items.length!==section.items.length)errors.push(`「${section.name}」清單項目數量不一致。`);}
+  if(fields.title&&out.titleText!==fields.title.value)errors.push('主標題驗證失敗。');
+  if(out.images.length!==srcD.images.length)errors.push('產出圖片數量與新資料不同。');
+ }catch(e){errors.push('無法完成驗證：'+e.message)}
+ const summary=`主標題${fields.title?'已換':'未換'}、內文 ${fields.body?fields.body.oldCount+' → '+fields.body.items.length+' 段':'未配對'}、清單 ${fields.sections.length} 組、影片 ${sVideo.length} 支`;
+ return {html:text,critical:[...critical,...errors],warnings,summary};
+}
+
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let S=null,lastData='',forced=false;
@@ -170,18 +433,37 @@ function runChecks(oldH,newH,src){const out=[],add=(l,m)=>out.push([l,m]);
   return out}
 function pendingImgs(h){return [...new Set([...h.matchAll(/<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/gi)].map(m=>m[1]).filter(s=>!/[\/:]/.test(s)&&!/^data:/i.test(s)).map(s=>s.replace(/^\{\{BASE\}\}/,'')))]}
 /* ---- 主流程 ---- */
-function readRight(){const r=$('nxt').value;const x=extract(r);if(x.html)return{html:x.html,json:x.json};const tags=(r.match(/<[a-zA-Z][^>]*>/g)||[]).length;if(/^\s*</.test(r)||tags>=3)return{html:r.trim(),json:null};return null}
-$('run').addEventListener('click',()=>{const cur=$('cur').value;if(!cur.trim()){notice('先在左邊貼上目前版本','warn');return}if(!$('nxt').value.trim()){notice('右邊還沒有貼東西','warn');return}
-  const r=readRight();if(!r){lastData=$('nxt').value;notice('右邊看起來是資料，不是原始碼。按「把右邊當成新資料，複製給 AI 的指令」，貼到 ChatGPT，再把 AI 的回覆整段貼回右邊，按「比對並檢查」。','warn');return}
-  S={cur,out:r.html.replace(/\{\{BASE\}\}/g,''),json:r.json};forced=false;$('output').value=S.out;$('results').classList.remove('hidden');render();$('results').scrollIntoView({behavior:'smooth',block:'start'})});
-function render(){if(!S)return;const out=S.out;const cl=runChecks(S.cur,out,lastData);const pend=pendingImgs(out);const e=cl.filter(c=>c[0]==='e'),w=cl.filter(c=>c[0]==='w');
+function curMode(){const r=document.querySelector('input[name=mode]:checked');return r?r.value:''}
+function setMode(m){const r=document.querySelector('input[name=mode][value="'+m+'"]');if(r)r.checked=true;$('aiRow').classList.toggle('hidden',m!=='data')}
+function detectMode(right,left){if(/```html/i.test(right))return 'final';const tags=(right.match(/<[a-zA-Z][^>]*>/g)||[]).length;if(!(/^\s*</.test(right)||tags>=3))return 'data';
+  const L=new Set(left.split('\n').map(x=>x.trim()).filter(x=>x.length>8)),R=right.split('\n').map(x=>x.trim()).filter(x=>x.length>8);if(!R.length)return 'final';const same=R.filter(x=>L.has(x)).length/R.length;return same>=0.35?'final':'aaab'}
+let modeTouched=false;document.querySelectorAll('input[name=mode]').forEach(r=>r.addEventListener('change',()=>{modeTouched=true;setMode(curMode())}));
+$('nxt').addEventListener('input',()=>{modeTouched=false});
+$('run').addEventListener('click',()=>{const cur=$('cur').value,right=$('nxt').value;if(!cur.trim()){notice('先在左邊貼上目前版本','warn');return}if(!right.trim()){notice('右邊還沒有貼東西','warn');return}
+  let mode=modeTouched&&curMode()?curMode():detectMode(right,cur);setMode(mode);
+  if(mode==='data'){lastData=right;$('results').classList.add('hidden');notice('右邊是文字資料。按「複製給 AI 的指令」，貼到 ChatGPT，再把 AI 的回覆整段貼回右邊（取代資料），按「比對並檢查」。','warn');return}
+  let out,json=null,extra=null;
+  if(mode==='final'){const x=extract(right);out=x.html||right.trim();json=x.json}
+  else{lastData=textOf(right);const r=transplant(right,cur);if(r.error){notice(r.error+(r.critical&&r.critical.length?' '+r.critical.join(' '):''),'bad');return}out=r.html;extra=r}
+  S={cur,out:out.replace(/\{\{BASE\}\}/g,''),json,extra,mode};forced=false;$('output').value=S.out;$('results').classList.remove('hidden');render();$('results').scrollIntoView({behavior:'smooth',block:'start'})});
+function imgTags(h){return [...h.matchAll(/<img\b[^>]*>/gi)].map(m=>{const t=m[0];const g=n=>{const x=t.match(new RegExp('\\b'+n+'\\s*=\\s*("([^"]*)"|\'([^\']*)\')','i'));return x?(x[2]!==undefined?x[2]:x[3]||''):null};return{tag:t,src:g('src')||'',alt:g('alt')}})}
+const noPath=s=>!/[\/:]/.test(s)&&!/^data:/i.test(s);
+function setImgAttr(src,attr,val){S.out=S.out.replace(/<img\b[^>]*>/gi,t=>{const m=t.match(/\bsrc\s*=\s*("([^"]*)"|'([^']*)')/i);const sv=m?(m[2]!==undefined?m[2]:m[3]||''):'';if(sv!==src)return t;const re=new RegExp('(\\s'+attr+'\\s*=\\s*)("[^"]*"|\'[^\']*\')','i');const q='"'+String(val).replace(/"/g,'&quot;')+'"';return re.test(t)?t.replace(re,'$1'+q):t.replace(/\s*\/?>$/,e=>' '+attr+'='+q+e)});$('output').value=S.out}
+function drawImgs(){const L=imgTags(S.cur),O=imgTags(S.out),lset=new Set(L.map(x=>x.src));const seen=new Map();O.forEach((x,i)=>{if(lset.has(x.src))return;if(!seen.has(x.src))seen.set(x.src,{i,n:0,alt:x.alt});seen.get(x.src).n++});
+  const removed=[...new Set(L.map(x=>x.src))].filter(s=>!O.some(o=>o.src===s));const same=new Set(O.filter(x=>lset.has(x.src)).map(x=>x.src)).size;
+  const olds=new Set();const rows=[...seen].map(([src,v],k)=>{const old=L.length===O.length&&L[v.i]?L[v.i].src:'';if(old)olds.add(old);const p=noPath(src);
+    return '<tr><td>'+(k+1)+'</td><td>'+(old?'<div class="old">原本：'+esc(old)+'</div>':'<div class="old">新增</div>')+'<input type="text" data-isrc="'+esc(src)+'" value="'+esc(src)+'" aria-label="圖片 '+(k+1)+' 的 src"></td><td><input type="text" data-ialt="'+esc(src)+'" value="'+esc(v.alt||'')+'" aria-label="圖片 '+(k+1)+' 的 alt"></td><td>'+(p?'<span class="bad">✗ 等上傳後回填</span>':'<span class="ok">✓ 有路徑</span>')+(v.n>1?'<div class="old">出現 '+v.n+' 次</div>':'')+'</td></tr>'}).join('');
+  $('imgList').innerHTML=(rows?'<div class="tw"><table class="imgt"><tr><th>#</th><th>src（檔名或路徑）</th><th>alt</th><th>狀態</th></tr>'+rows+'</table></div>':'<p class="mini">沒有新的或換過的圖片。</p>')+
+    '<p class="mini" style="margin:6px 0 0">'+(same?'其他 '+same+' 張沒變。':'')+((r=>r.length?' 拿掉了 '+r.length+' 張：'+r.map(esc).join('、'):'')(removed.filter(x=>!olds.has(x))))+'</p>';
+  document.querySelectorAll('[data-isrc]').forEach(el=>el.addEventListener('change',()=>{const v=el.value.trim();if(!v)return;S.out=S.out.split('src="'+el.dataset.isrc+'"').join('src="'+v+'"').split("src='"+el.dataset.isrc+"'").join("src='"+v+"'");$('output').value=S.out;render()}));
+  document.querySelectorAll('[data-ialt]').forEach(el=>el.addEventListener('change',()=>{setImgAttr(el.dataset.ialt,'alt',el.value);render()}))}
+function render(){if(!S)return;const out=S.out;const cl=runChecks(S.cur,out,S.mode==='final'&&!lastData?'':lastData);if(S.extra){S.extra.critical.forEach(c=>cl.unshift(['e',c]));S.extra.warnings.forEach(c=>cl.push(['w',c]))}const pend=pendingImgs(out);const e=cl.filter(c=>c[0]==='e'),w=cl.filter(c=>c[0]==='w');
   const ln=lineOps(S.cur,out).filter(x=>x.t==='chg').length;
-  $('chips').innerHTML=(S.cur===out?'<span class="chip">和目前版本相同</span>':'<span class="chip good">改了 '+ln+' 處</span>')+(e.length?'<span class="chip bad">'+e.length+' 個問題</span>':'')+(w.length?'<span class="chip warn">'+w.length+' 個提醒</span>':'')+(pend.length?'<span class="chip warn">'+pend.length+' 張圖片還沒有路徑</span>':(out.match(/<img\b/gi)||[]).length?'<span class="chip good">圖片路徑都有了</span>':'');
+  $('chips').innerHTML=(S.cur===out?'<span class="chip">和目前版本相同</span>':'<span class="chip good">改了 '+ln+' 處</span>')+(S.extra?'<span class="chip">'+esc(S.extra.summary)+'</span>':'')+(e.length?'<span class="chip bad">'+e.length+' 個問題</span>':'')+(w.length?'<span class="chip warn">'+w.length+' 個提醒</span>':'')+(pend.length?'<span class="chip warn">'+pend.length+' 張圖片還沒有路徑</span>':(out.match(/<img\b/gi)||[]).length?'<span class="chip good">圖片路徑都有了</span>':'');
   const box=$('checks');const all=[...e.map(c=>'⛔ '+c[1]),...w.map(c=>'⚠ '+c[1])];if(all.length){box.classList.remove('hidden');box.innerHTML='<b>'+(e.length?'有問題要處理：':'請看一下：')+'</b><ul>'+all.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>'}else box.classList.add('hidden');
   $('diff').innerHTML=diffLinesHtml(S.cur,out);
   const qs=S.json&&Array.isArray(S.json.questions)?S.json.questions.filter(Boolean):[];$('qSec').hidden=!qs.length;$('qList').innerHTML=qs.map(q=>'<li>'+esc(typeof q==='string'?q:JSON.stringify(q))+'</li>').join('');
-  const imgs=[...new Set([...out.matchAll(/<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/gi)].map(m=>m[1]))];
-  const okN=imgs.length-pend.length;$('imgList').innerHTML=imgs.length?pend.map(s=>'<div class="imgrow"><span class="bad">✗ 還沒有路徑</span><code>'+esc(s)+'</code></div>').join('')+(okN?'<p class="mini ok" style="margin:6px 0 0">✓ '+(pend.length?'其他 ':'')+okN+' 張圖片已有路徑</p>':''):'<p class="mini">這份原始碼沒有圖片。</p>';
+  drawImgs();
   $('imgFill').classList.toggle('hidden',!pend.length);
   const lock=e.length>0||pend.length>0;$('copy').disabled=lock&&!forced;$('force').classList.toggle('hidden',!lock||forced);
   if(lock&&!forced)notice(pend.length&&!e.length?'還有 '+pend.length+' 張圖片沒有路徑，先完成「圖片路徑」再複製。':'有 '+e.length+' 個問題要處理，已鎖住複製。可以在「原始碼」分頁直接修改，或請 AI 重改。','bad');
@@ -202,11 +484,11 @@ $('tPrev').addEventListener('click',()=>{showTab('prev');render()});$('tCode').a
 window.addEventListener('message',e=>{if(!S||!e.data||e.data.swapK===undefined)return;const p=S.pos[e.data.swapK];if(p===undefined)return;const end=elemEnd(S.out,p);showTab('code');const ta=$('output');ta.focus();ta.setSelectionRange(p,end);const line=S.out.slice(0,p).split('\n').length-1;ta.scrollTop=Math.max(0,(line-3)*20);notice('已在原始碼裡選取你點的那一塊（第 '+(line+1)+' 行），可以直接修改。按「前台預覽」回去看效果。','ok')});
 $('swap').addEventListener('click',()=>{const a=$('cur').value;$('cur').value=$('nxt').value;$('nxt').value=a;S=null;$('results').classList.add('hidden');notice('已交換左右，請再按「比對並檢查」','ok')});
 let clr=false;$('clear').addEventListener('click',()=>{if(!clr&&($('cur').value||$('nxt').value)){clr=true;$('clear').textContent='再按一次確認清空';setTimeout(()=>{clr=false;$('clear').textContent='清空'},3000);return}clr=false;$('clear').textContent='清空';$('cur').value='';$('nxt').value='';$('paths').value='';S=null;lastData='';$('results').classList.add('hidden');notice('')});
-$('aiBtn').addEventListener('click',async()=>{const cur=$('cur').value,data=$('nxt').value;if(!cur.trim()||!data.trim()){$('aiMsg').textContent='左右都要先貼';return}lastData=data;
+$('aiBtn').addEventListener('click',async()=>{setMode('data');const cur=$('cur').value,data=$('nxt').value;if(!cur.trim()||!data.trim()){$('aiMsg').textContent='左右都要先貼';return}lastData=data;
   const p='你是政府機關網站的上稿編輯。請把下面的「新資料」換進「目前版本」的 CKEditor 原始碼。\n\n規則：\n1. 以目前版本的 HTML 結構、class、id、屬性為準，只替換、新增或刪除內容，不要改版型。\n2. 人名、職稱、單位、日期、時間、數字一律照新資料原文，不要改寫或推測。\n3. 新增項目時，複製目前版本裡同類項目的寫法（例如卡片和彈窗共用同一個 id、編號接續現有最大號）。\n4. 新資料裡沒有、目前版本有的舊項目要移除；看不出是否該移除的，寫在 questions。\n5. 新的圖片：src 只寫檔名（例如 src="wang.jpg"），之後會自動換成路徑；alt 寫圖片內容，不要寫檔名。\n6. YouTube 影片 ID 從網址取（watch?v= 或 youtu.be/ 後面 11 個字元）；iframe 要有 title。\n7. 新資料裡括號說明、※、備註、「待確認」等是內部注記，不要放上網頁；拿不準的寫在 questions。\n\n輸出：先輸出一個 ```html 程式碼區塊（完整原始碼，可直接整段取代），再輸出一個 ```json 程式碼區塊：{"changes":["改了什麼"],"questions":["要人確認的事"]}。不要其他說明文字。\n\n【新資料】\n'+data+'\n\n【目前版本】\n```html\n'+cur+'\n```';
   let ok=false;try{await navigator.clipboard.writeText(p);ok=true}catch(e){const t=document.createElement('textarea');t.value=p;t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.select();try{ok=document.execCommand('copy')}catch(x){}t.remove()}
   $('aiMsg').textContent=ok?'已複製。貼到 ChatGPT（有照片、Excel 就一起附上），把回覆整段貼回右邊取代資料，再按「比對並檢查」。':'複製失敗，請再按一次'});
-lookLabel();
+lookLabel();setMode('final');
 
 </script>
 </body>
