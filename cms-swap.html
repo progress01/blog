@@ -21,6 +21,8 @@ textarea.code{font:13px/1.5 Consolas,Monaco,monospace;resize:vertical;min-height
 .actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:15px 2px}.note{font-size:13px;color:var(--muted)}
 .message{padding:9px 13px;border:1px solid #cbd8e9;background:#f7fbff;border-radius:9px;font-size:13.5px}.message.ok{color:#125a40;border-color:#b9e1d0;background:#f0fcf5}.message.warn{color:#8b4a15;background:#fffbef;border-color:#e7d3ac}.message.bad{color:#8c1d2c;background:#fff3f4;border-color:#ecc3ca}
 .hidden{display:none!important}
+.viewonly #diffSec,.viewonly #qSec,.viewonly #chips{display:none!important}.viewonly.noimg #leftCol{display:none}.viewonly.noimg .editor-layout{grid-template-columns:minmax(0,1fr)}.viewonly .pvwrap{height:620px}.viewonly.both .pvwrap,.viewonly .both .pvwrap{height:560px}
+.cssbox{margin:0 0 12px;padding:10px 14px}.cssbox summary{font-weight:600}
 .pvwrap{position:relative;width:100%;height:560px;border:1px solid #d5e0eb;border-radius:9px;background:#fff;overflow:hidden}.pvwrap .preview{border:0;border-radius:0;transform-origin:0 0;display:block}
 .pvwrap.full{position:fixed;inset:0;width:100vw;height:100vh!important;z-index:50;border-radius:0;border:0}.pvclose{position:fixed;top:10px;right:14px;z-index:51}
 .both .codeout{height:240px}.both .pvwrap{height:420px}
@@ -44,7 +46,7 @@ kbd{background:#f5f8fa;padding:1px 5px;border:1px solid #dce4ee;border-radius:4p
 </style>
 </head>
 <body>
-<header class="top"><h1>上稿換稿台</h1><p>左邊貼目前版本，右邊貼改好的版本（或新資料），比對後看前台效果、改了哪裡，補上圖片路徑再複製。不需登入、不連網，什麼都不會存。</p></header>
+<header class="top"><h1>上稿換稿台</h1><p>左邊貼目前版本，右邊貼改好的版本（或新資料），比對後看前台效果、改了哪裡，補上圖片路徑再複製。不需登入、不連網；只有你設定的 CSS 和前台樣式會存在這台電腦的瀏覽器。</p></header>
 <main class="wrap">
 <div class="intro"><span class="step"><b>① 左邊貼目前版本</b></span><span class="arrow">→</span><span class="step"><b>② 右邊貼改好的版本</b>（或新資料交給 AI）</span><span class="arrow">→</span><span class="step"><b>③ 看效果、補圖片路徑、複製</b></span></div>
 <div class="grid">
@@ -56,25 +58,26 @@ kbd{background:#f5f8fa;padding:1px 5px;border:1px solid #dce4ee;border-radius:4p
 <label><input type="radio" name="mode" value="data"> <b>文字資料</b><span class="mini">email、Excel、Word 文字，交給 AI 改</span></label></fieldset>
 <div class="row" id="aiRow" style="margin-top:8px"><button id="aiBtn" class="small">複製給 AI 的指令</button><span id="aiMsg" class="mini"></span></div></section>
 </div>
-<div class="actions"><button class="primary" id="run">比對並檢查</button><button id="swap">交換左右</button><button id="clear">清空</button><span class="note">新圖片在原始碼裡先寫檔名（例如 <code>src="wang.jpg"</code>），上傳後再自動換成路徑。</span></div>
+<div class="actions"><button class="primary" id="view">只看效果</button><button class="primary" id="run">比對並檢查</button><button id="swap">交換左右</button><button id="clear">清空</button><span class="note">「只看效果」：貼一邊就好，直接看前台長怎樣、邊改邊看。「比對並檢查」：兩邊都貼，看改了哪裡。<br>新圖片在原始碼裡先寫檔名（例如 <code>src="wang.jpg"</code>），上傳後再自動換成路徑。</span></div>
+<details id="cssBox" class="cssbox box"><summary id="cssSum">客製化 CSS（選填）：上傳或貼上 CSS，預覽會套用</summary>
+<p class="mini">客製化頁面的 CSS 貼在這裡（可以好幾份），預覽會馬上套用。只存在這台電腦的瀏覽器，不會上傳到任何地方。</p>
+<div id="cssList"></div>
+<div class="row" style="margin-top:6px"><button class="small" id="cssAdd">＋ 加一份 CSS</button><label class="small btnlike">讀取 .css 檔<input type="file" id="cssFile" accept=".css,text/css" multiple hidden></label></div></details>
 <div id="message" class="message hidden" role="status"></div>
 <div id="results" class="results hidden">
-<div class="bar"><h2>比對結果</h2><div class="chips" id="chips"></div></div>
+<div class="bar"><h2 id="resTitle">比對結果</h2><div class="chips" id="chips"></div></div>
 <div id="checks" class="checks hidden"></div>
 <div class="editor-layout">
-<div>
+<div id="leftCol">
 <section class="section" id="imgSec"><h3>要換的圖片</h3><div id="imgList"></div>
 <div id="imgFill"><p class="mini">圖片上傳到「內嵌檔案」後，在後台的編輯頁按 <kbd>Ctrl</kbd>+<kbd>A</kbd>、<kbd>Ctrl</kbd>+<kbd>C</kbd>，點下面的框按 <kbd>Ctrl</kbd>+<kbd>V</kbd>，會用檔名自動換成真正的路徑。</p><textarea id="paths" rows="3" placeholder="在這裡 Ctrl+V"></textarea></div></section>
-<section class="section"><h3>改了哪裡</h3><p class="mini">綠色是新增、紅色是刪除。右邊預覽裡黃框是改到的地方。</p><div id="diff" class="diff"></div></section>
+<section class="section" id="diffSec"><h3>改了哪裡</h3><p class="mini">綠色是新增、紅色是刪除。右邊預覽裡黃框是改到的地方。</p><div id="diff" class="diff"></div></section>
 <section class="section" id="qSec" hidden><h3>AI 想確認的事</h3><ul id="qList" class="mini" style="margin:0;padding-left:18px"></ul></section>
 </div>
 <section class="box stickybox"><div class="row" style="justify-content:space-between"><h2 style="margin:0">產出的原始碼</h2><div class="row"><button class="primary small" id="copy">複製原始碼</button><button class="small hidden" id="force">我確認過，仍要複製</button></div></div>
 <div class="output-tabs"><button class="small active" id="tPrev">前台預覽</button><button class="small" id="tCode">原始碼（可直接改）</button><button class="small" id="tBoth">並排（邊改邊看）</button><label class="mini row">寬度 <select id="vw" aria-label="預覽寬度"><option value="0">跟框一樣</option><option value="390">手機 390</option><option value="820">平板 820</option><option value="1366" selected>電腦 1366</option></select></label><button class="small" id="tFull">放大預覽</button><label class="mini row" style="margin-left:auto"><input type="checkbox" id="showHidden"> 展開隱藏內容（彈窗）</label></div>
 <textarea id="output" class="codeout hidden" spellcheck="false" aria-label="產出的原始碼"></textarea><button class="primary small pvclose hidden" id="pvClose">關閉放大（Esc）</button><div id="pvwrap" class="pvwrap"><iframe id="preview" class="preview" sandbox="allow-scripts" title="改好的前台預覽"></iframe></div>
-<details id="cssBox" class="cssbox"><summary id="cssSum">自訂 CSS（客製化頁面用）</summary>
-<p class="mini">客製化頁面的 CSS 貼在這裡（可以好幾份），預覽會馬上套用。只存在這台電腦的瀏覽器，不會上傳到任何地方。</p>
-<div id="cssList"></div>
-<div class="row" style="margin-top:6px"><button class="small" id="cssAdd">＋ 加一份 CSS</button><label class="small btnlike">讀取 .css 檔<input type="file" id="cssFile" accept=".css,text/css" multiple hidden></label></div></details>
+
 <details id="lookBox"><summary id="lookSum">讓預覽跟前台一樣（設定一次）</summary>
 <p class="mini">打開這個頁面的前台，按 <kbd>Ctrl</kbd>+<kbd>U</kbd>，全選複製貼在下面。只存在這台電腦的瀏覽器，同一個網站設定一次就好。在沒有網路的環境，前台樣式載入不了，會顯示簡單版面。</p>
 <input type="text" id="lkSite" placeholder="前台網址，例如 https://www.cca.gov.tw" style="margin-bottom:6px"><textarea id="lkSrc" rows="3" placeholder="前台頁面原始碼（Ctrl+U 全選複製）"></textarea>
@@ -406,7 +409,7 @@ $('lkDel').addEventListener('click',()=>{setLookStore(null);lookLabel();if(S)ren
 const CK='cms-swap-css';let CSSL=(()=>{try{return JSON.parse(localStorage.getItem(CK)||'[]')}catch(e){return []}})();
 function saveCss(){try{localStorage.setItem(CK,JSON.stringify(CSSL))}catch(e){}}
 function cssText(){return CSSL.filter(c=>c.on&&c.css.trim()).map(c=>'/* '+String(c.name||'').replace(/\*\//g,'')+' */\n'+c.css.replace(/<\/style/gi,'<\\/style')).join('\n')}
-function cssLabel(){const n=CSSL.filter(c=>c.on&&c.css.trim()).length;$('cssSum').textContent=n?'自訂 CSS：套用中 '+n+' 份':'自訂 CSS（客製化頁面用）'}
+function cssLabel(){const n=CSSL.filter(c=>c.on&&c.css.trim()).length;$('cssSum').textContent=n?'客製化 CSS：套用中 '+n+' 份（點開可修改）':'客製化 CSS（選填）：上傳或貼上 CSS，預覽會套用'}
 let cssT;function cssChanged(){saveCss();cssLabel();clearTimeout(cssT);cssT=setTimeout(refreshPreview,350)}
 function drawCss(){$('cssList').innerHTML=CSSL.map((c,i)=>'<div class="cssitem"><div class="row"><input type="checkbox" data-con="'+i+'"'+(c.on?' checked':'')+' aria-label="套用這份 CSS"><input type="text" data-cname="'+i+'" value="'+esc(c.name)+'" aria-label="CSS 名稱"><button class="small" data-cdel="'+i+'">刪除</button></div><textarea rows="4" data-ccss="'+i+'" spellcheck="false" placeholder="把 CSS 貼在這裡" aria-label="CSS 內容">'+esc(c.css)+'</textarea><div class="mini" data-cinfo="'+i+'"></div></div>').join('')||'<p class="mini">還沒有自訂 CSS。</p>';
   CSSL.forEach((c,i)=>cssInfo(i));cssLabel()}
@@ -473,7 +476,14 @@ function detectMode(right,left){if(/```html/i.test(right))return 'final';const t
   const L=new Set(left.split('\n').map(x=>x.trim()).filter(x=>x.length>8)),R=right.split('\n').map(x=>x.trim()).filter(x=>x.length>8);if(!R.length)return 'final';const same=R.filter(x=>L.has(x)).length/R.length;return same>=0.35?'final':'aaab'}
 let modeTouched=false;document.querySelectorAll('input[name=mode]').forEach(r=>r.addEventListener('change',()=>{modeTouched=true;setMode(curMode())}));
 $('nxt').addEventListener('input',()=>{modeTouched=false});
-$('run').addEventListener('click',()=>{const cur=$('cur').value,right=$('nxt').value;if(!cur.trim()){notice('先在左邊貼上目前版本','warn');return}if(!right.trim()){S={cur,out:cur,json:null,extra:null,mode:'final'};lastData='';forced=false;$('output').value=cur;$('results').classList.remove('hidden');showTab('both');render();notice('右邊沒有貼東西，先預覽左邊。在上面的原始碼直接改，下面的預覽會跟著變；客製化 CSS 貼在預覽下方的「自訂 CSS」。','ok');$('results').scrollIntoView({behavior:'smooth',block:'start'});return}
+function viewOnly(){const L=$('cur').value,R=$('nxt').value;let src='',from='';
+  if(R.trim()){const x=extract(R);const h=x.html||R.trim();if(/<[a-zA-Z][^>]*>/.test(h)){src=h;from='右邊'}}
+  if(!src&&L.trim()){src=L.trim();from='左邊'}
+  if(!src){notice('先在左邊或右邊貼上 CKEditor 原始碼','warn');return}
+  S={cur:src,out:src,json:null,extra:null,mode:'view'};lastData='';forced=false;$('output').value=src;$('results').classList.remove('hidden');$('results').classList.add('viewonly');$('resTitle').textContent='前台效果（'+from+'的原始碼）';
+  showTab('both');render();notice('上面的原始碼可以直接改，下面的預覽會跟著變，黃框是改到的地方。改好按「複製原始碼」。'+(CSSL.some(c=>c.on&&c.css.trim())?'':'客製化頁面的 CSS 在上方「客製化 CSS」上傳。'),'ok');$('results').scrollIntoView({behavior:'smooth',block:'start'})}
+$('view').addEventListener('click',viewOnly);
+$('run').addEventListener('click',()=>{const cur=$('cur').value,right=$('nxt').value;$('results').classList.remove('viewonly');$('resTitle').textContent='比對結果';if(!cur.trim()){notice('先在左邊貼上目前版本','warn');return}if(!right.trim()){viewOnly();return}
   let mode=modeTouched&&curMode()?curMode():detectMode(right,cur);setMode(mode);
   if(mode==='data'){lastData=right;$('results').classList.add('hidden');notice('右邊是文字資料。按「複製給 AI 的指令」，貼到 ChatGPT，再把 AI 的回覆整段貼回右邊（取代資料），按「比對並檢查」。','warn');return}
   let out,json=null,extra=null;
@@ -491,7 +501,7 @@ function drawImgs(){const L=imgTags(S.cur),O=imgTags(S.out),lset=new Set(L.map(x
     '<p class="mini" style="margin:6px 0 0">'+(same?'其他 '+same+' 張沒變。':'')+((r=>r.length?' 拿掉了 '+r.length+' 張：'+r.map(esc).join('、'):'')(removed.filter(x=>!olds.has(x))))+'</p>';
   document.querySelectorAll('[data-isrc]').forEach(el=>el.addEventListener('change',()=>{const v=el.value.trim();if(!v)return;S.out=S.out.split('src="'+el.dataset.isrc+'"').join('src="'+v+'"').split("src='"+el.dataset.isrc+"'").join("src='"+v+"'");$('output').value=S.out;render()}));
   document.querySelectorAll('[data-ialt]').forEach(el=>el.addEventListener('change',()=>{setImgAttr(el.dataset.ialt,'alt',el.value);render()}))}
-function render(){if(!S)return;const out=S.out;const cl=runChecks(S.cur,out,S.mode==='final'&&!lastData?'':lastData);if(S.extra){S.extra.critical.forEach(c=>cl.unshift(['e',c]));S.extra.warnings.forEach(c=>cl.push(['w',c]))}const pend=pendingImgs(out);const e=cl.filter(c=>c[0]==='e'),w=cl.filter(c=>c[0]==='w');
+function render(){if(!S)return;const out=S.out;const cl=runChecks(S.cur,out,S.mode==='final'&&!lastData?'':lastData);if(S.extra){S.extra.critical.forEach(c=>cl.unshift(['e',c]));S.extra.warnings.forEach(c=>cl.push(['w',c]))}const pend=pendingImgs(out);$('results').classList.toggle('noimg',!pend.length);const e=cl.filter(c=>c[0]==='e'),w=cl.filter(c=>c[0]==='w');
   const ln=lineOps(S.cur,out).filter(x=>x.t==='chg').length;
   $('chips').innerHTML=(S.cur===out?'<span class="chip">和目前版本相同</span>':'<span class="chip good">改了 '+ln+' 處</span>')+(S.extra?'<span class="chip">'+esc(S.extra.summary)+'</span>':'')+(e.length?'<span class="chip bad">'+e.length+' 個問題</span>':'')+(w.length?'<span class="chip warn">'+w.length+' 個提醒</span>':'')+(pend.length?'<span class="chip warn">'+pend.length+' 張圖片還沒有路徑</span>':(out.match(/<img\b/gi)||[]).length?'<span class="chip good">圖片路徑都有了</span>':'');
   const box=$('checks');const all=[...e.map(c=>'⛔ '+c[1]),...w.map(c=>'⚠ '+c[1])];if(all.length){box.classList.remove('hidden');box.innerHTML='<b>'+(e.length?'有問題要處理：':'請看一下：')+'</b><ul>'+all.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>'}else box.classList.add('hidden');
