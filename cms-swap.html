@@ -21,6 +21,11 @@ textarea.code{font:13px/1.5 Consolas,Monaco,monospace;resize:vertical;min-height
 .actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:15px 2px}.note{font-size:13px;color:var(--muted)}
 .message{padding:9px 13px;border:1px solid #cbd8e9;background:#f7fbff;border-radius:9px;font-size:13.5px}.message.ok{color:#125a40;border-color:#b9e1d0;background:#f0fcf5}.message.warn{color:#8b4a15;background:#fffbef;border-color:#e7d3ac}.message.bad{color:#8c1d2c;background:#fff3f4;border-color:#ecc3ca}
 .hidden{display:none!important}
+.pvwrap{position:relative;width:100%;height:560px;border:1px solid #d5e0eb;border-radius:9px;background:#fff;overflow:hidden}.pvwrap .preview{border:0;border-radius:0;transform-origin:0 0;display:block}
+.pvwrap.full{position:fixed;inset:0;width:100vw;height:100vh!important;z-index:50;border-radius:0;border:0}.pvclose{position:fixed;top:10px;right:14px;z-index:51}
+.both .codeout{height:240px}.both .pvwrap{height:420px}
+.cssitem{border:1px solid #e0e8f1;border-radius:8px;padding:8px;margin-top:6px;background:#fbfdff}.cssitem .row{gap:6px}.cssitem input[type=text]{flex:1;min-width:120px;padding:4px 7px;font-size:13px}.cssitem textarea{width:100%;margin-top:6px;font:12px/1.5 Consolas,Monaco,monospace}
+.btnlike{display:inline-flex;align-items:center;border:1px solid #c8d6e6;border-radius:8px;padding:5px 10px;background:#fff;cursor:pointer;font-size:13px}
 .modes{border:1px solid #e0e8f1;border-radius:9px;margin:8px 0 0;padding:6px 10px;display:flex;flex-direction:column;gap:2px}.modes label{display:flex;gap:6px;align-items:baseline;font-size:13.5px;flex-wrap:wrap}.modes .mini{margin-left:4px}
 .imgt{width:100%;border-collapse:collapse;font-size:13px}.imgt th,.imgt td{border-bottom:1px solid #e6edf5;padding:6px 4px;text-align:left;vertical-align:top}.imgt th{color:var(--muted);font-weight:500;font-size:12px}.imgt input{padding:5px 7px;font:12.5px Consolas,monospace;border-radius:6px}.imgt td:last-child{white-space:nowrap}.imgt .old{font:11.5px Consolas,monospace;color:var(--muted);word-break:break-all}.tw{overflow-x:auto}.results{margin-top:8px}
 .bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}.bar h2{margin:0;font-size:19px}
@@ -31,11 +36,11 @@ textarea.code{font:13px/1.5 Consolas,Monaco,monospace;resize:vertical;min-height
 .diff{font:12.5px/1.65 Consolas,Monaco,monospace;white-space:pre-wrap;word-break:break-word;background:#f7f9fc;border:1px solid #e0e8f1;border-radius:8px;padding:10px;max-height:520px;overflow:auto}
 .diff ins{background:var(--ins);text-decoration:none;border-radius:3px}.diff del{background:var(--del);border-radius:3px}.diff .gap{color:#8a9ab0}
 .output-tabs{display:flex;gap:7px;align-items:center;margin:10px 0;flex-wrap:wrap}.output-tabs button.active{background:var(--light);border-color:#7aa5da;color:#154f9b}
-.preview{width:100%;height:560px;border:1px solid #d5e0eb;border-radius:9px;background:#fff}.codeout{width:100%;height:560px;font:13px/1.55 Consolas,Monaco,monospace}
+.preview{width:100%;height:100%;background:#fff}.codeout{width:100%;height:560px;font:13px/1.55 Consolas,Monaco,monospace}
 .mini{font-size:12px;color:var(--muted)}.imgrow{display:flex;gap:8px;align-items:center;font-size:13px;padding:4px 0;border-top:1px dashed #e0e8f1}.imgrow:first-child{border-top:0}.imgrow code{font-size:12px;word-break:break-all}
 .ok{color:var(--green)}.bad{color:var(--red)}details summary{cursor:pointer;font-size:13.5px;color:#375f94}details{margin-top:10px}
 kbd{background:#f5f8fa;padding:1px 5px;border:1px solid #dce4ee;border-radius:4px;font-size:12px}
-@media(max-width:960px){.grid,.editor-layout{grid-template-columns:minmax(0,1fr)}.stickybox{position:static}.preview,.codeout{height:420px}}
+@media(max-width:960px){.grid,.editor-layout{grid-template-columns:minmax(0,1fr)}.stickybox{position:static}.codeout,.pvwrap{height:420px}}
 </style>
 </head>
 <body>
@@ -64,8 +69,12 @@ kbd{background:#f5f8fa;padding:1px 5px;border:1px solid #dce4ee;border-radius:4p
 <section class="section" id="qSec" hidden><h3>AI 想確認的事</h3><ul id="qList" class="mini" style="margin:0;padding-left:18px"></ul></section>
 </div>
 <section class="box stickybox"><div class="row" style="justify-content:space-between"><h2 style="margin:0">產出的原始碼</h2><div class="row"><button class="primary small" id="copy">複製原始碼</button><button class="small hidden" id="force">我確認過，仍要複製</button></div></div>
-<div class="output-tabs"><button class="small active" id="tPrev">前台預覽</button><button class="small" id="tCode">原始碼（可直接改）</button><label class="mini row" style="margin-left:auto"><input type="checkbox" id="showHidden"> 展開隱藏內容（彈窗）</label></div>
-<iframe id="preview" class="preview" sandbox="allow-scripts" title="改好的前台預覽"></iframe><textarea id="output" class="codeout hidden" spellcheck="false" aria-label="產出的原始碼"></textarea>
+<div class="output-tabs"><button class="small active" id="tPrev">前台預覽</button><button class="small" id="tCode">原始碼（可直接改）</button><button class="small" id="tBoth">並排（邊改邊看）</button><label class="mini row">寬度 <select id="vw" aria-label="預覽寬度"><option value="0">跟框一樣</option><option value="390">手機 390</option><option value="820">平板 820</option><option value="1366" selected>電腦 1366</option></select></label><button class="small" id="tFull">放大預覽</button><label class="mini row" style="margin-left:auto"><input type="checkbox" id="showHidden"> 展開隱藏內容（彈窗）</label></div>
+<textarea id="output" class="codeout hidden" spellcheck="false" aria-label="產出的原始碼"></textarea><button class="primary small pvclose hidden" id="pvClose">關閉放大（Esc）</button><div id="pvwrap" class="pvwrap"><iframe id="preview" class="preview" sandbox="allow-scripts" title="改好的前台預覽"></iframe></div>
+<details id="cssBox" class="cssbox"><summary id="cssSum">自訂 CSS（客製化頁面用）</summary>
+<p class="mini">客製化頁面的 CSS 貼在這裡（可以好幾份），預覽會馬上套用。只存在這台電腦的瀏覽器，不會上傳到任何地方。</p>
+<div id="cssList"></div>
+<div class="row" style="margin-top:6px"><button class="small" id="cssAdd">＋ 加一份 CSS</button><label class="small btnlike">讀取 .css 檔<input type="file" id="cssFile" accept=".css,text/css" multiple hidden></label></div></details>
 <details id="lookBox"><summary id="lookSum">讓預覽跟前台一樣（設定一次）</summary>
 <p class="mini">打開這個頁面的前台，按 <kbd>Ctrl</kbd>+<kbd>U</kbd>，全選複製貼在下面。只存在這台電腦的瀏覽器，同一個網站設定一次就好。在沒有網路的環境，前台樣式載入不了，會顯示簡單版面。</p>
 <input type="text" id="lkSite" placeholder="前台網址，例如 https://www.cca.gov.tw" style="margin-bottom:6px"><textarea id="lkSrc" rows="3" placeholder="前台頁面原始碼（Ctrl+U 全選複製）"></textarea>
@@ -393,6 +402,22 @@ $('lkGo').addEventListener('click',()=>{const src=$('lkSrc').value;if(!/<html|<h
   const ok=setLookStore({site:site.replace(/\/+$/,'')+'/',page:'<!doctype html>'+doc.documentElement.outerHTML,chain});$('lkSrc').value='';lookLabel();if(S)render();
   notice(ok?'前台樣式已設定'+(chain?'，也找到內容在頁面中的位置':'')+'。':'瀏覽器不讓存（可能是私密視窗），這份設定存不起來。','ok')});
 $('lkDel').addEventListener('click',()=>{setLookStore(null);lookLabel();if(S)render();notice('已清除前台樣式','ok')});
+/* ---- 自訂 CSS（只存在本機瀏覽器） ---- */
+const CK='cms-swap-css';let CSSL=(()=>{try{return JSON.parse(localStorage.getItem(CK)||'[]')}catch(e){return []}})();
+function saveCss(){try{localStorage.setItem(CK,JSON.stringify(CSSL))}catch(e){}}
+function cssText(){return CSSL.filter(c=>c.on&&c.css.trim()).map(c=>'/* '+String(c.name||'').replace(/\*\//g,'')+' */\n'+c.css.replace(/<\/style/gi,'<\\/style')).join('\n')}
+function cssLabel(){const n=CSSL.filter(c=>c.on&&c.css.trim()).length;$('cssSum').textContent=n?'自訂 CSS：套用中 '+n+' 份':'自訂 CSS（客製化頁面用）'}
+let cssT;function cssChanged(){saveCss();cssLabel();clearTimeout(cssT);cssT=setTimeout(refreshPreview,350)}
+function drawCss(){$('cssList').innerHTML=CSSL.map((c,i)=>'<div class="cssitem"><div class="row"><input type="checkbox" data-con="'+i+'"'+(c.on?' checked':'')+' aria-label="套用這份 CSS"><input type="text" data-cname="'+i+'" value="'+esc(c.name)+'" aria-label="CSS 名稱"><button class="small" data-cdel="'+i+'">刪除</button></div><textarea rows="4" data-ccss="'+i+'" spellcheck="false" placeholder="把 CSS 貼在這裡" aria-label="CSS 內容">'+esc(c.css)+'</textarea><div class="mini" data-cinfo="'+i+'"></div></div>').join('')||'<p class="mini">還沒有自訂 CSS。</p>';
+  CSSL.forEach((c,i)=>cssInfo(i));cssLabel()}
+function cssInfo(i){const el=document.querySelector('[data-cinfo="'+i+'"]');if(!el)return;const c=CSSL[i].css;if(!c.trim()){el.textContent='';return}
+  const open=(c.match(/\{/g)||[]).length,close=(c.match(/\}/g)||[]).length;const html=/<\/?(div|p|style|link)\b/i.test(c);
+  el.innerHTML=html?'<span class="bad">看起來不是 CSS（裡面有 HTML 標籤）</span>':open!==close?'<span class="bad">大括號沒有成對：{ '+open+' 個、} '+close+' 個</span>':'<span class="ok">'+Math.round(c.length/1024*10)/10+' KB，'+open+' 條規則</span>'}
+$('cssList').addEventListener('input',e=>{const t=e.target;if(t.dataset.ccss!=null){CSSL[+t.dataset.ccss].css=t.value;cssInfo(+t.dataset.ccss);cssChanged()}else if(t.dataset.cname!=null){CSSL[+t.dataset.cname].name=t.value;saveCss()}});
+$('cssList').addEventListener('change',e=>{const t=e.target;if(t.dataset.con!=null){CSSL[+t.dataset.con].on=t.checked;cssChanged()}});
+$('cssList').addEventListener('click',e=>{const t=e.target;if(t.dataset.cdel!=null){CSSL.splice(+t.dataset.cdel,1);drawCss();cssChanged()}});
+$('cssAdd').addEventListener('click',()=>{CSSL.push({name:'CSS '+(CSSL.length+1),on:true,css:''});drawCss();const ts=document.querySelectorAll('[data-ccss]');ts[ts.length-1].focus()});
+$('cssFile').addEventListener('change',async e=>{const fs=[...e.target.files];for(const f of fs){CSSL.push({name:f.name,on:true,css:await f.text()})}e.target.value='';drawCss();cssChanged();if(fs.length)notice('讀進 '+fs.length+' 份 CSS，預覽已套用。','ok')});
 /* ---- 預覽 ---- */
 function frontDoc(h,old,showHidden){const look=getLook();const an=annotate(h);const ks=old!=null?changedKs(old,h,an.pos):[];const chg=ks.map(k=>'[data-k="'+k+'"]').join(',');
   const css=(chg?chg+'{outline:3px solid #f0b400!important;outline-offset:2px;background-color:rgba(255,200,0,.16)!important}':'')+'[data-k]:hover{outline:2px dashed #1f62b5;outline-offset:2px;cursor:pointer}img[src]:not([src*="/"]){outline:3px dashed #a7283e;min-width:80px;min-height:50px}';
@@ -405,10 +430,19 @@ function frontDoc(h,old,showHidden){const look=getLook();const an=annotate(h);co
       if(top){const inner=look.chain.slice(1);top.innerHTML=inner.map(c=>'<'+c.t+(c.c?' class="'+esc(c.c)+'"':'')+'>').join('')+an.html+inner.slice().reverse().map(c=>'</'+c.t+'>').join('');placed=true}}
     if(!placed)(doc.querySelector('main')||doc.body).innerHTML=an.html;
     doc.querySelectorAll('link[rel~=stylesheet]').forEach(l=>{l.setAttribute('data-m',l.getAttribute('media')||'all');l.setAttribute('media','print')});
-    const b=doc.createElement('base');b.href=look.site;doc.head.prepend(b);const st=doc.createElement('style');st.textContent=css;doc.head.appendChild(st);
+    const b=doc.createElement('base');b.href=look.site;doc.head.prepend(b);const st=doc.createElement('style');st.textContent=css;doc.head.appendChild(st);const uc=cssText();if(uc){const u=doc.createElement('style');u.id='swap-user-css';u.textContent=uc;doc.head.appendChild(u)}
     return {html:'<!doctype html>'+doc.documentElement.outerHTML.replace(/<\/body>(?![\s\S]*<\/body>)/,script+'</body>'),pos:an.pos}}
-  return {html:'<!doctype html><html><head><meta charset="utf-8"><style>body{font:15px/1.75 "Microsoft JhengHei",sans-serif;padding:18px;color:#243046}img{max-width:100%;height:auto}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:4px 8px}'+css+'</style></head><body>'+an.html+script+'</body></html>',pos:an.pos}}
-function setFrame(html){const old=$('preview');const f=old.cloneNode(false);f.removeAttribute('srcdoc');old.replaceWith(f);f.srcdoc=html}
+  return {html:'<!doctype html><html><head><meta charset="utf-8"><style>*,*:before,*:after{box-sizing:border-box}body{font:15px/1.75 "Microsoft JhengHei",sans-serif;padding:18px;color:#243046}img{max-width:100%;height:auto}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:4px 8px}:root{--ca-white:#fff;--ca-black:#222}'+css+'</style><style id="swap-user-css">'+cssText()+'</style></head><body>'+an.html+script+'</body></html>',pos:an.pos}}
+function setFrame(html){const old=$('preview');const f=old.cloneNode(false);f.removeAttribute('srcdoc');old.replaceWith(f);fitFrame();f.srcdoc=html}
+function fitFrame(){const f=$('preview'),w=$('pvwrap'),W=+$('vw').value,bw=w.clientWidth,bh=w.clientHeight;if(!bw)return;
+  if(!W||W<=bw){f.style.width=(W||bw)+'px';f.style.height=bh+'px';f.style.transform='';f.style.marginLeft=W?Math.floor((bw-W)/2)+'px':'0'}
+  else{const k=bw/W;f.style.width=W+'px';f.style.height=Math.ceil(bh/k)+'px';f.style.transform='scale('+k+')';f.style.marginLeft='0'}}
+function refreshPreview(){if(!S)return;const fd=frontDoc(S.out,S.cur,$('showHidden').checked);S.pos=fd.pos;setFrame(fd.html)}
+$('vw').addEventListener('change',()=>{try{localStorage.setItem('cms-swap-vw',$('vw').value)}catch(e){}fitFrame()});
+try{const v=localStorage.getItem('cms-swap-vw');if(v)$('vw').value=v}catch(e){}
+window.addEventListener('resize',()=>fitFrame());
+function fullPv(on){$('pvwrap').classList.toggle('full',on);$('pvClose').classList.toggle('hidden',!on);if(on){showTab($('tBoth').classList.contains('active')?'both':'prev')}fitFrame();if(on)$('pvClose').focus()}
+$('tFull').addEventListener('click',()=>fullPv(true));$('pvClose').addEventListener('click',()=>fullPv(false));document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('pvwrap').classList.contains('full'))fullPv(false)});
 /* ---- 檢查 ---- */
 function runChecks(oldH,newH,src){const out=[],add=(l,m)=>out.push([l,m]);
   if(!newH.trim()){add('e','右邊沒有原始碼');return out}
@@ -426,7 +460,7 @@ function runChecks(oldH,newH,src){const out=[],add=(l,m)=>out.push([l,m]);
   (newH.match(/<iframe\b[^>]*>/gi)||[]).forEach(t=>{if(!/\btitle\s*=\s*["'][^"']+/i.test(t))add('e','影片 iframe 沒有 title（無障礙必填）')});
   const body=newH.replace(/<!--[\s\S]*?-->/g,'');const ids={};[...body.matchAll(/\sid\s*=\s*["']([^"']+)["']/gi)].forEach(m=>ids[m[1]]=(ids[m[1]]||0)+1);
   const dup=Object.keys(ids).filter(k=>ids[k]>1);if(dup.length)add('e','id 重複：'+dup.slice(0,8).map(k=>'#'+k).join('、')+'，卡片和彈窗會對錯');
-  const hrefs=[...new Set([...body.matchAll(/href\s*=\s*["']#([^"'\s]+)["']/gi)].map(m=>m[1]))];const miss=hrefs.filter(h=>!ids[h]);if(miss.length)add('e','連結指到不存在的 id：'+miss.slice(0,8).map(k=>'#'+k).join('、'));
+  const hrefs=[...new Set([...body.matchAll(/href\s*=\s*["']#([^"'\s]+)["']/gi)].map(m=>m[1]))];const oldIds=new Set([...oldH.matchAll(/\sid\s*=\s*["']([^"']+)["']/gi)].map(m=>m[1])),oldMiss=new Set([...oldH.matchAll(/href\s*=\s*["']#([^"'\s]+)["']/gi)].map(m=>m[1]).filter(h=>!oldIds.has(h)));const miss=hrefs.filter(h=>!ids[h]),mNew=miss.filter(h=>!oldMiss.has(h)),mOld=miss.filter(h=>oldMiss.has(h));if(mNew.length)add('e','連結指到不存在的 id：'+mNew.slice(0,8).map(k=>'#'+k).join('、'));if(mOld.length)add('w','原本就有的連結找不到對應 id：'+mOld.slice(0,8).map(k=>'#'+k).join('、')+'（可能在頁面其他區塊）');
   const ot=textOf(oldH),nt=textOf(newH);if(ot.length>200&&nt.length<ot.length*0.7)add('w','文字比原本少了 '+Math.round((1-nt.length/ot.length)*100)+'%，確認沒有漏掉內容');
   if(src&&src.trim()){const SS=norm(src)+'|'+norm(ot);const ms=[];diffText(ot,nt).filter(x=>x.t==='ins').forEach(x=>{x.v.split(/[\s，。；、,;:：|｜／\/()（）「」【】]+/).map(s=>s.trim()).filter(s=>norm(s).length>=2).forEach(s=>{if(!SS.includes(norm(s))&&!ms.includes(s))ms.push(s)})});
     if(ms.length)add('w','這些新寫進去的文字，在新資料裡找不到：'+ms.slice(0,10).map(s=>'「'+s.slice(0,30)+'」').join('、')+(ms.length>10?' 等 '+ms.length+' 處':'')+'。可能是 AI 改寫或編造')}
@@ -439,7 +473,7 @@ function detectMode(right,left){if(/```html/i.test(right))return 'final';const t
   const L=new Set(left.split('\n').map(x=>x.trim()).filter(x=>x.length>8)),R=right.split('\n').map(x=>x.trim()).filter(x=>x.length>8);if(!R.length)return 'final';const same=R.filter(x=>L.has(x)).length/R.length;return same>=0.35?'final':'aaab'}
 let modeTouched=false;document.querySelectorAll('input[name=mode]').forEach(r=>r.addEventListener('change',()=>{modeTouched=true;setMode(curMode())}));
 $('nxt').addEventListener('input',()=>{modeTouched=false});
-$('run').addEventListener('click',()=>{const cur=$('cur').value,right=$('nxt').value;if(!cur.trim()){notice('先在左邊貼上目前版本','warn');return}if(!right.trim()){notice('右邊還沒有貼東西','warn');return}
+$('run').addEventListener('click',()=>{const cur=$('cur').value,right=$('nxt').value;if(!cur.trim()){notice('先在左邊貼上目前版本','warn');return}if(!right.trim()){S={cur,out:cur,json:null,extra:null,mode:'final'};lastData='';forced=false;$('output').value=cur;$('results').classList.remove('hidden');showTab('both');render();notice('右邊沒有貼東西，先預覽左邊。在上面的原始碼直接改，下面的預覽會跟著變；客製化 CSS 貼在預覽下方的「自訂 CSS」。','ok');$('results').scrollIntoView({behavior:'smooth',block:'start'});return}
   let mode=modeTouched&&curMode()?curMode():detectMode(right,cur);setMode(mode);
   if(mode==='data'){lastData=right;$('results').classList.add('hidden');notice('右邊是文字資料。按「複製給 AI 的指令」，貼到 ChatGPT，再把 AI 的回覆整段貼回右邊（取代資料），按「比對並檢查」。','warn');return}
   let out,json=null,extra=null;
@@ -479,8 +513,8 @@ let edT;$('output').addEventListener('input',()=>{if(!S)return;S.out=$('output')
 $('showHidden').addEventListener('change',render);
 $('force').addEventListener('click',()=>{forced=true;render()});
 $('copy').addEventListener('click',async()=>{if(!S||$('copy').disabled)return;let ok=false;try{await navigator.clipboard.writeText(S.out);ok=true}catch(e){showTab('code');$('output').select();try{ok=document.execCommand('copy')}catch(x){}}notice(ok?'已複製，貼進 CKEditor 的原始碼模式，取代全部內容。':'請手動 Ctrl+C（已幫你選取）',ok?'ok':'warn')});
-function showTab(t){const code=t==='code';$('output').classList.toggle('hidden',!code);$('preview').classList.toggle('hidden',code);$('tCode').classList.toggle('active',code);$('tPrev').classList.toggle('active',!code)}
-$('tPrev').addEventListener('click',()=>{showTab('prev');render()});$('tCode').addEventListener('click',()=>showTab('code'));
+function showTab(t){const both=t==='both',code=t==='code';$('output').classList.toggle('hidden',!(code||both));$('pvwrap').classList.toggle('hidden',code);$('pvwrap').parentElement.classList.toggle('both',both);$('tCode').classList.toggle('active',code);$('tPrev').classList.toggle('active',t==='prev');$('tBoth').classList.toggle('active',both);fitFrame()}
+$('tPrev').addEventListener('click',()=>{showTab('prev');render()});$('tCode').addEventListener('click',()=>showTab('code'));$('tBoth').addEventListener('click',()=>{showTab('both');render()});
 window.addEventListener('message',e=>{if(!S||!e.data||e.data.swapK===undefined)return;const p=S.pos[e.data.swapK];if(p===undefined)return;const end=elemEnd(S.out,p);showTab('code');const ta=$('output');ta.focus();ta.setSelectionRange(p,end);const line=S.out.slice(0,p).split('\n').length-1;ta.scrollTop=Math.max(0,(line-3)*20);notice('已在原始碼裡選取你點的那一塊（第 '+(line+1)+' 行），可以直接修改。按「前台預覽」回去看效果。','ok')});
 $('swap').addEventListener('click',()=>{const a=$('cur').value;$('cur').value=$('nxt').value;$('nxt').value=a;S=null;$('results').classList.add('hidden');notice('已交換左右，請再按「比對並檢查」','ok')});
 let clr=false;$('clear').addEventListener('click',()=>{if(!clr&&($('cur').value||$('nxt').value)){clr=true;$('clear').textContent='再按一次確認清空';setTimeout(()=>{clr=false;$('clear').textContent='清空'},3000);return}clr=false;$('clear').textContent='清空';$('cur').value='';$('nxt').value='';$('paths').value='';S=null;lastData='';$('results').classList.add('hidden');notice('')});
@@ -488,7 +522,7 @@ $('aiBtn').addEventListener('click',async()=>{setMode('data');const cur=$('cur')
   const p='你是政府機關網站的上稿編輯。請把下面的「新資料」換進「目前版本」的 CKEditor 原始碼。\n\n規則：\n1. 以目前版本的 HTML 結構、class、id、屬性為準，只替換、新增或刪除內容，不要改版型。\n2. 人名、職稱、單位、日期、時間、數字一律照新資料原文，不要改寫或推測。\n3. 新增項目時，複製目前版本裡同類項目的寫法（例如卡片和彈窗共用同一個 id、編號接續現有最大號）。\n4. 新資料裡沒有、目前版本有的舊項目要移除；看不出是否該移除的，寫在 questions。\n5. 新的圖片：src 只寫檔名（例如 src="wang.jpg"），之後會自動換成路徑；alt 寫圖片內容，不要寫檔名。\n6. YouTube 影片 ID 從網址取（watch?v= 或 youtu.be/ 後面 11 個字元）；iframe 要有 title。\n7. 新資料裡括號說明、※、備註、「待確認」等是內部注記，不要放上網頁；拿不準的寫在 questions。\n\n輸出：先輸出一個 ```html 程式碼區塊（完整原始碼，可直接整段取代），再輸出一個 ```json 程式碼區塊：{"changes":["改了什麼"],"questions":["要人確認的事"]}。不要其他說明文字。\n\n【新資料】\n'+data+'\n\n【目前版本】\n```html\n'+cur+'\n```';
   let ok=false;try{await navigator.clipboard.writeText(p);ok=true}catch(e){const t=document.createElement('textarea');t.value=p;t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.select();try{ok=document.execCommand('copy')}catch(x){}t.remove()}
   $('aiMsg').textContent=ok?'已複製。貼到 ChatGPT（有照片、Excel 就一起附上），把回覆整段貼回右邊取代資料，再按「比對並檢查」。':'複製失敗，請再按一次'});
-lookLabel();setMode('final');
+lookLabel();setMode('final');drawCss();
 
 </script>
 </body>
