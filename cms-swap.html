@@ -60,8 +60,13 @@ kbd{background:#f5f8fa;padding:1px 5px;border:1px solid #dce4ee;border-radius:4p
 </div>
 <div class="actions"><button class="primary" id="view">只看效果</button><button class="primary" id="run">比對並檢查</button><button id="swap">交換左右</button><button id="clear">清空</button><span class="note">「只看效果」：貼一邊就好，直接看前台長怎樣、邊改邊看。「比對並檢查」：兩邊都貼，看改了哪裡。<br>新圖片在原始碼裡先寫檔名（例如 <code>src="wang.jpg"</code>），上傳後再自動換成路徑。</span></div>
 <details id="cssBox" class="cssbox box"><summary id="cssSum">客製化 CSS（選填）：上傳或貼上 CSS，預覽會套用</summary>
-<p class="mini">客製化頁面的 CSS 貼在這裡（可以好幾份），預覽會馬上套用。只存在這台電腦的瀏覽器，不會上傳到任何地方。</p>
+<p class="mini">客製化頁面的 CSS 貼在這裡（可以好幾份），預覽會馬上套用。只存在這台電腦的瀏覽器，不會上傳到任何地方。<br>
+<b>前台共用的 CSS 也要放進來，不然會跑版</b>：客製化 CSS 只寫了這一頁特有的樣式，置中、版面寬度、字級、顏色變數都在網站共用的 CSS（例如 <code>/assets/css/content.css</code>）。可以直接貼網址（每行一個），或上傳檔案。<b>順序有差</b>：共用的排前面、客製化的排後面，用 ↑ 調整。</p>
+<label class="mini" for="siteUrl">前台網址（讓 <code>/img/…</code> 圖片、<code>/assets/…</code> CSS 這類路徑載得到）</label>
+<input type="text" id="siteUrl" placeholder="例如 https://www.cca.gov.tw" style="margin:3px 0 6px">
+<div class="row" style="margin-bottom:4px"><button class="small" id="cssCommon">＋ 加入前台共用 CSS（網址）</button></div>
 <div id="cssList"></div>
+<div id="cssDiag" class="mini" style="margin-top:8px"></div>
 <div class="row" style="margin-top:6px"><button class="small" id="cssAdd">＋ 加一份 CSS</button><label class="small btnlike">讀取 .css 檔<input type="file" id="cssFile" accept=".css,text/css" multiple hidden></label></div></details>
 <div id="message" class="message hidden" role="status"></div>
 <div id="results" class="results hidden">
@@ -76,7 +81,7 @@ kbd{background:#f5f8fa;padding:1px 5px;border:1px solid #dce4ee;border-radius:4p
 </div>
 <section class="box stickybox"><div class="row" style="justify-content:space-between"><h2 style="margin:0">產出的原始碼</h2><div class="row"><button class="primary small" id="copy">複製原始碼</button><button class="small hidden" id="force">我確認過，仍要複製</button></div></div>
 <div class="output-tabs"><button class="small active" id="tPrev">前台預覽</button><button class="small" id="tCode">原始碼（可直接改）</button><button class="small" id="tBoth">並排（邊改邊看）</button><label class="mini row">寬度 <select id="vw" aria-label="預覽寬度"><option value="0">跟框一樣</option><option value="390">手機 390</option><option value="820">平板 820</option><option value="1366" selected>電腦 1366</option></select></label><button class="small" id="tFull">放大預覽</button><label class="mini row" style="margin-left:auto"><input type="checkbox" id="showHidden"> 展開隱藏內容（彈窗）</label></div>
-<textarea id="output" class="codeout hidden" spellcheck="false" aria-label="產出的原始碼"></textarea><button class="primary small pvclose hidden" id="pvClose">關閉放大（Esc）</button><div id="pvwrap" class="pvwrap"><iframe id="preview" class="preview" sandbox="allow-scripts" title="改好的前台預覽"></iframe></div>
+<textarea id="output" class="codeout hidden" spellcheck="false" aria-label="產出的原始碼"></textarea><button class="primary small pvclose hidden" id="pvClose">關閉放大（Esc）</button><div id="pvWarn" class="checks hidden" style="margin:0 0 8px"></div><div id="pvwrap" class="pvwrap"><iframe id="preview" class="preview" sandbox="allow-scripts" title="改好的前台預覽"></iframe></div>
 
 <details id="lookBox"><summary id="lookSum">讓預覽跟前台一樣（設定一次）</summary>
 <p class="mini">打開這個頁面的前台，按 <kbd>Ctrl</kbd>+<kbd>U</kbd>，全選複製貼在下面。只存在這台電腦的瀏覽器，同一個網站設定一次就好。在沒有網路的環境，前台樣式載入不了，會顯示簡單版面。</p>
@@ -408,19 +413,36 @@ $('lkDel').addEventListener('click',()=>{setLookStore(null);lookLabel();if(S)ren
 /* ---- 自訂 CSS（只存在本機瀏覽器） ---- */
 const CK='cms-swap-css';let CSSL=(()=>{try{return JSON.parse(localStorage.getItem(CK)||'[]')}catch(e){return []}})();
 function saveCss(){try{localStorage.setItem(CK,JSON.stringify(CSSL))}catch(e){}}
+const isUrlCss=c=>{const L=c.trim().split(/\s*\n\s*/);return L.length>0&&L.every(x=>/^(https?:\/\/|\/)[^\s{}]+$/.test(x))};
+function siteBase(){const v=(()=>{try{return localStorage.getItem('cms-swap-site')||''}catch(e){return ''}})()||(getLook()||{}).site||'';return /^https?:\/\//.test(v)?v.replace(/\/*$/,'/'):''}
+function cssHead(){return CSSL.filter(c=>c.on&&c.css.trim()).map(c=>isUrlCss(c.css)?c.css.trim().split(/\s*\n\s*/).map(u=>'<link rel="stylesheet" href="'+esc(u)+'">').join(''):'<style class="swap-user-css">/* '+String(c.name||'').replace(/\*\//g,'')+' */\n'+c.css.replace(/<\/style/gi,'<\\/style')+'</style>').join('')}
+function stripCss(c){return c.replace(/\/\*[\s\S]*?\*\//g,'').replace(/url\(\s*(['"]?)[\s\S]*?\1\s*\)/g,'url()').replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g,'""')}
+function cssDiag(h){const inl=CSSL.filter(c=>c.on&&c.css.trim()&&!isUrlCss(c.css)).map(c=>stripCss(c.css)).join('\n');const hasUrl=CSSL.some(c=>c.on&&isUrlCss(c.css));
+  const defs=new Set([...inl.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map(m=>m[1]));const used=new Set();(h||'').replace(/\sclass\s*=\s*["']([^"']*)["']/gi,(m,c)=>{c.split(/\s+/).filter(Boolean).forEach(x=>used.add(x));return m});
+  const missCls=[...used].filter(x=>!defs.has(x));const vdef=new Set([...inl.matchAll(/(--[\w-]+)\s*:/g)].map(m=>m[1]));const missVar=[...new Set([...inl.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)].map(m=>m[1]))].filter(v=>!vdef.has(v));
+  const common=CSSL.some(c=>c.on&&!isUrlCss(c.css)&&(/^(content|common|base|main|style|global|layout)\b|前台共用/i.test(c.name||'')||c.css.length>60000));return {missCls,missVar,hasUrl,common,hasInline:!!inl.trim(),look:!!getLook()}}
+function drawDiag(){const h=S?S.out:($('nxt').value.trim()?$('nxt').value:$('cur').value);const d=cssDiag(h);const any=CSSL.some(c=>c.on&&c.css.trim());
+  const risky=any&&!d.hasUrl&&!d.look&&(d.missVar.length||(d.missCls.length&&!d.common));
+  const msg=risky?'<b>預覽可能和前台不一樣：</b>'+(d.missCls.length?'原始碼用到 '+d.missCls.length+' 個 class 在你給的 CSS 裡找不到（'+d.missCls.slice(0,8).map(esc).join('、')+(d.missCls.length>8?'…':'')+'）；':'')+(d.missVar.length?'CSS 用到沒定義的變數（'+d.missVar.slice(0,6).map(esc).join('、')+(d.missVar.length>6?'…':'')+'）；':'')+'這些通常在前台共用 CSS。請在「客製化 CSS」按「＋ 加入前台共用 CSS」，或用「讓預覽跟前台一樣」貼一次前台原始碼。':'';
+  $('cssDiag').innerHTML=!any?'':risky?'<span class="bad">⚠</span> '+msg:(d.hasUrl||d.look?'<span class="ok">✓ 有載入前台共用 CSS'+(siteBase()?'':'（記得填前台網址）')+'。外部 CSS 要連得到網站才會載入。</span>':d.common?'<span class="ok">✓ 有前台共用 CSS。</span>'+(d.missCls.length?' 這些 class 在所有 CSS 裡都找不到：'+d.missCls.slice(0,8).map(esc).join('、')+'（前台如果也沒有樣式就沒關係）':''):'<span class="ok">✓ 原始碼用到的 class 都有定義。</span>');
+  const w=$('pvWarn');if(risky){w.classList.remove('hidden');w.innerHTML=msg}else w.classList.add('hidden')}
 function cssText(){return CSSL.filter(c=>c.on&&c.css.trim()).map(c=>'/* '+String(c.name||'').replace(/\*\//g,'')+' */\n'+c.css.replace(/<\/style/gi,'<\\/style')).join('\n')}
 function cssLabel(){const n=CSSL.filter(c=>c.on&&c.css.trim()).length;$('cssSum').textContent=n?'客製化 CSS：套用中 '+n+' 份（點開可修改）':'客製化 CSS（選填）：上傳或貼上 CSS，預覽會套用'}
-let cssT;function cssChanged(){saveCss();cssLabel();clearTimeout(cssT);cssT=setTimeout(refreshPreview,350)}
-function drawCss(){$('cssList').innerHTML=CSSL.map((c,i)=>'<div class="cssitem"><div class="row"><input type="checkbox" data-con="'+i+'"'+(c.on?' checked':'')+' aria-label="套用這份 CSS"><input type="text" data-cname="'+i+'" value="'+esc(c.name)+'" aria-label="CSS 名稱"><button class="small" data-cdel="'+i+'">刪除</button></div><textarea rows="4" data-ccss="'+i+'" spellcheck="false" placeholder="把 CSS 貼在這裡" aria-label="CSS 內容">'+esc(c.css)+'</textarea><div class="mini" data-cinfo="'+i+'"></div></div>').join('')||'<p class="mini">還沒有自訂 CSS。</p>';
-  CSSL.forEach((c,i)=>cssInfo(i));cssLabel()}
+let cssT;function cssChanged(){saveCss();cssLabel();drawDiag();clearTimeout(cssT);cssT=setTimeout(refreshPreview,350)}
+function drawCss(){$('cssList').innerHTML=CSSL.map((c,i)=>'<div class="cssitem"><div class="row"><input type="checkbox" data-con="'+i+'"'+(c.on?' checked':'')+' aria-label="套用這份 CSS"><input type="text" data-cname="'+i+'" value="'+esc(c.name)+'" aria-label="CSS 名稱">'+(i?'<button class="small" data-cup="'+i+'" title="往前移：排越前面越先載入，後面的會蓋過前面">↑</button>':'')+'<button class="small" data-cdel="'+i+'">刪除</button></div><textarea rows="4" data-ccss="'+i+'" spellcheck="false" placeholder="把 CSS 貼在這裡" aria-label="CSS 內容">'+esc(c.css)+'</textarea><div class="mini" data-cinfo="'+i+'"></div></div>').join('')||'<p class="mini">還沒有自訂 CSS。</p>';
+  CSSL.forEach((c,i)=>cssInfo(i));cssLabel();drawDiag()}
 function cssInfo(i){const el=document.querySelector('[data-cinfo="'+i+'"]');if(!el)return;const c=CSSL[i].css;if(!c.trim()){el.textContent='';return}
+  if(isUrlCss(c)){const n=c.trim().split(/\s*\n\s*/).length;el.innerHTML='<span class="ok">外部 CSS '+n+' 個網址</span>'+(c.trim().startsWith('/')&&!siteBase()?' <span class="bad">開頭是 / 的路徑，要在上面填前台網址</span>':'')+'（要連得到網站才會載入；沒網路時請改上傳檔案）';return}
   const open=(c.match(/\{/g)||[]).length,close=(c.match(/\}/g)||[]).length;const html=/<\/?(div|p|style|link)\b/i.test(c);
   el.innerHTML=html?'<span class="bad">看起來不是 CSS（裡面有 HTML 標籤）</span>':open!==close?'<span class="bad">大括號沒有成對：{ '+open+' 個、} '+close+' 個</span>':'<span class="ok">'+Math.round(c.length/1024*10)/10+' KB，'+open+' 條規則</span>'}
 $('cssList').addEventListener('input',e=>{const t=e.target;if(t.dataset.ccss!=null){CSSL[+t.dataset.ccss].css=t.value;cssInfo(+t.dataset.ccss);cssChanged()}else if(t.dataset.cname!=null){CSSL[+t.dataset.cname].name=t.value;saveCss()}});
 $('cssList').addEventListener('change',e=>{const t=e.target;if(t.dataset.con!=null){CSSL[+t.dataset.con].on=t.checked;cssChanged()}});
-$('cssList').addEventListener('click',e=>{const t=e.target;if(t.dataset.cdel!=null){CSSL.splice(+t.dataset.cdel,1);drawCss();cssChanged()}});
+$('cssList').addEventListener('click',e=>{const t=e.target;if(t.dataset.cdel!=null){CSSL.splice(+t.dataset.cdel,1);drawCss();cssChanged()}else if(t.dataset.cup!=null){const i=+t.dataset.cup;[CSSL[i-1],CSSL[i]]=[CSSL[i],CSSL[i-1]];drawCss();cssChanged()}});
+try{$('siteUrl').value=localStorage.getItem('cms-swap-site')||''}catch(e){}
+$('siteUrl').addEventListener('input',()=>{try{localStorage.setItem('cms-swap-site',$('siteUrl').value.trim())}catch(e){}CSSL.forEach((c,i)=>cssInfo(i));drawDiag();clearTimeout(cssT);cssT=setTimeout(refreshPreview,500)});
+$('cssCommon').addEventListener('click',()=>{if(!$('siteUrl').value.trim()){$('siteUrl').value='https://www.cca.gov.tw';$('siteUrl').dispatchEvent(new Event('input'))}CSSL.unshift({name:'前台共用 CSS',on:true,css:'/assets/css/content.css'});drawCss();cssChanged();notice('已加入前台共用 CSS（/assets/css/content.css），排在最前面（共用的要先載入，客製化的在後面才蓋得過去）。網址不一樣請直接改；VDI 沒網路時請改上傳 content.css 檔案。','ok')});
 $('cssAdd').addEventListener('click',()=>{CSSL.push({name:'CSS '+(CSSL.length+1),on:true,css:''});drawCss();const ts=document.querySelectorAll('[data-ccss]');ts[ts.length-1].focus()});
-$('cssFile').addEventListener('change',async e=>{const fs=[...e.target.files];for(const f of fs){CSSL.push({name:f.name,on:true,css:await f.text()})}e.target.value='';drawCss();cssChanged();if(fs.length)notice('讀進 '+fs.length+' 份 CSS，預覽已套用。','ok')});
+$('cssFile').addEventListener('change',async e=>{const fs=[...e.target.files];for(const f of fs){const it={name:f.name,on:true,css:await f.text()};if(/^(content|common|base|main|style|global|layout)\b/i.test(f.name)){const k=CSSL.findIndex(c=>!/^(content|common|base|main|style|global|layout)\b|前台共用/i.test(c.name||''));CSSL.splice(k<0?CSSL.length:k,0,it)}else CSSL.push(it)}e.target.value='';drawCss();cssChanged();if(fs.length)notice('讀進 '+fs.length+' 份 CSS，預覽已套用。','ok')});
 /* ---- 預覽 ---- */
 function frontDoc(h,old,showHidden){const look=getLook();const an=annotate(h);const ks=old!=null?changedKs(old,h,an.pos):[];const chg=ks.map(k=>'[data-k="'+k+'"]').join(',');
   const css=(chg?chg+'{outline:3px solid #f0b400!important;outline-offset:2px;background-color:rgba(255,200,0,.16)!important}':'')+'[data-k]:hover{outline:2px dashed #1f62b5;outline-offset:2px;cursor:pointer}img[src]:not([src*="/"]){outline:3px dashed #a7283e;min-width:80px;min-height:50px}';
@@ -433,9 +455,10 @@ function frontDoc(h,old,showHidden){const look=getLook();const an=annotate(h);co
       if(top){const inner=look.chain.slice(1);top.innerHTML=inner.map(c=>'<'+c.t+(c.c?' class="'+esc(c.c)+'"':'')+'>').join('')+an.html+inner.slice().reverse().map(c=>'</'+c.t+'>').join('');placed=true}}
     if(!placed)(doc.querySelector('main')||doc.body).innerHTML=an.html;
     doc.querySelectorAll('link[rel~=stylesheet]').forEach(l=>{l.setAttribute('data-m',l.getAttribute('media')||'all');l.setAttribute('media','print')});
-    const b=doc.createElement('base');b.href=look.site;doc.head.prepend(b);const st=doc.createElement('style');st.textContent=css;doc.head.appendChild(st);const uc=cssText();if(uc){const u=doc.createElement('style');u.id='swap-user-css';u.textContent=uc;doc.head.appendChild(u)}
+    const b=doc.createElement('base');b.href=look.site;doc.head.prepend(b);const st=doc.createElement('style');st.textContent=css;doc.head.appendChild(st);const uh=cssHead();if(uh){const t=doc.createElement('template');t.innerHTML=uh;doc.head.appendChild(t.content)}
     return {html:'<!doctype html>'+doc.documentElement.outerHTML.replace(/<\/body>(?![\s\S]*<\/body>)/,script+'</body>'),pos:an.pos}}
-  return {html:'<!doctype html><html><head><meta charset="utf-8"><style>*,*:before,*:after{box-sizing:border-box}body{font:15px/1.75 "Microsoft JhengHei",sans-serif;padding:18px;color:#243046}img{max-width:100%;height:auto}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:4px 8px}:root{--ca-white:#fff;--ca-black:#222}'+css+'</style><style id="swap-user-css">'+cssText()+'</style></head><body>'+an.html+script+'</body></html>',pos:an.pos}}
+  const sb=siteBase(),wrapped=/\sclass\s*=\s*["'][^"']*\bwrap\w*/i.test(h);
+  return {html:'<!doctype html><html><head><meta charset="utf-8">'+(sb?'<base href="'+esc(sb)+'">':'')+'<style>*,*:before,*:after{box-sizing:border-box}body{margin:0;font:16px/1.5 "Microsoft JhengHei",Arial,sans-serif;padding:'+(wrapped?'0':'16px')+';color:#243046;word-break:break-word}img{max-width:100%;height:auto}:root{--ca-white:#fff;--ca-black:#000}</style>'+cssHead()+'<style>'+css+'</style></head><body>'+an.html+script+'</body></html>',pos:an.pos}}
 function setFrame(html){const old=$('preview');const f=old.cloneNode(false);f.removeAttribute('srcdoc');old.replaceWith(f);fitFrame();f.srcdoc=html}
 function fitFrame(){const f=$('preview'),w=$('pvwrap'),W=+$('vw').value,bw=w.clientWidth,bh=w.clientHeight;if(!bw)return;
   if(!W||W<=bw){f.style.width=(W||bw)+'px';f.style.height=bh+'px';f.style.transform='';f.style.marginLeft=W?Math.floor((bw-W)/2)+'px':'0'}
@@ -501,7 +524,7 @@ function drawImgs(){const L=imgTags(S.cur),O=imgTags(S.out),lset=new Set(L.map(x
     '<p class="mini" style="margin:6px 0 0">'+(same?'其他 '+same+' 張沒變。':'')+((r=>r.length?' 拿掉了 '+r.length+' 張：'+r.map(esc).join('、'):'')(removed.filter(x=>!olds.has(x))))+'</p>';
   document.querySelectorAll('[data-isrc]').forEach(el=>el.addEventListener('change',()=>{const v=el.value.trim();if(!v)return;S.out=S.out.split('src="'+el.dataset.isrc+'"').join('src="'+v+'"').split("src='"+el.dataset.isrc+"'").join("src='"+v+"'");$('output').value=S.out;render()}));
   document.querySelectorAll('[data-ialt]').forEach(el=>el.addEventListener('change',()=>{setImgAttr(el.dataset.ialt,'alt',el.value);render()}))}
-function render(){if(!S)return;const out=S.out;const cl=runChecks(S.cur,out,S.mode==='final'&&!lastData?'':lastData);if(S.extra){S.extra.critical.forEach(c=>cl.unshift(['e',c]));S.extra.warnings.forEach(c=>cl.push(['w',c]))}const pend=pendingImgs(out);$('results').classList.toggle('noimg',!pend.length);const e=cl.filter(c=>c[0]==='e'),w=cl.filter(c=>c[0]==='w');
+function render(){if(!S)return;const out=S.out;const cl=runChecks(S.cur,out,S.mode==='final'&&!lastData?'':lastData);if(S.extra){S.extra.critical.forEach(c=>cl.unshift(['e',c]));S.extra.warnings.forEach(c=>cl.push(['w',c]))}drawDiag();const pend=pendingImgs(out);$('results').classList.toggle('noimg',!pend.length);const e=cl.filter(c=>c[0]==='e'),w=cl.filter(c=>c[0]==='w');
   const ln=lineOps(S.cur,out).filter(x=>x.t==='chg').length;
   $('chips').innerHTML=(S.cur===out?'<span class="chip">和目前版本相同</span>':'<span class="chip good">改了 '+ln+' 處</span>')+(S.extra?'<span class="chip">'+esc(S.extra.summary)+'</span>':'')+(e.length?'<span class="chip bad">'+e.length+' 個問題</span>':'')+(w.length?'<span class="chip warn">'+w.length+' 個提醒</span>':'')+(pend.length?'<span class="chip warn">'+pend.length+' 張圖片還沒有路徑</span>':(out.match(/<img\b/gi)||[]).length?'<span class="chip good">圖片路徑都有了</span>':'');
   const box=$('checks');const all=[...e.map(c=>'⛔ '+c[1]),...w.map(c=>'⚠ '+c[1])];if(all.length){box.classList.remove('hidden');box.innerHTML='<b>'+(e.length?'有問題要處理：':'請看一下：')+'</b><ul>'+all.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>'}else box.classList.add('hidden');
