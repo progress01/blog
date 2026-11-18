@@ -64,7 +64,9 @@ kbd{background:#f5f8fa;padding:1px 5px;border:1px solid #dce4ee;border-radius:4p
 <b>前台共用的 CSS 也要放進來，不然會跑版</b>：客製化 CSS 只寫了這一頁特有的樣式，置中、版面寬度、字級、顏色變數都在網站共用的 CSS（例如 <code>/assets/css/content.css</code>）。可以直接貼網址（每行一個），或上傳檔案。<b>順序有差</b>：共用的排前面、客製化的排後面，用 ↑ 調整。</p>
 <label class="mini" for="siteUrl">前台網址（讓 <code>/img/…</code> 圖片、<code>/assets/…</code> CSS 這類路徑載得到）</label>
 <input type="text" id="siteUrl" placeholder="例如 https://www.cca.gov.tw" style="margin:3px 0 6px">
-<div class="row" style="margin-bottom:4px"><button class="small" id="cssCommon">＋ 加入前台共用 CSS（網址）</button></div>
+<div class="row" style="margin-bottom:4px"><button class="small primary" id="cssPageBtn">從前台頁面抓 CSS</button><button class="small" id="cssCommon">＋ 只加 content.css</button></div>
+<div id="cssPageBox" class="hidden" style="margin:4px 0 8px"><p class="mini" style="margin:0 0 4px">在公司機打開這一頁（或同網站任一頁）的前台，按 <kbd>Ctrl</kbd>+<kbd>U</kbd> 看原始碼，<kbd>Ctrl</kbd>+<kbd>A</kbd>、<kbd>Ctrl</kbd>+<kbd>C</kbd>，貼在下面。會自動找出這頁用到的所有 CSS（共用的和客製化的）。</p>
+<textarea id="cssPageSrc" rows="3" placeholder="前台頁面原始碼（Ctrl+U 全選複製）"></textarea><div class="row" style="margin-top:4px"><button class="small primary" id="cssPageGo">找出 CSS</button><span id="cssPageMsg" class="mini"></span></div><div id="cssPageList" class="mini"></div></div>
 <div id="cssList"></div>
 <div id="cssDiag" class="mini" style="margin-top:8px"></div>
 <div class="row" style="margin-top:6px"><button class="small" id="cssAdd">＋ 加一份 CSS</button><label class="small btnlike">讀取 .css 檔<input type="file" id="cssFile" accept=".css,text/css" multiple hidden></label></div></details>
@@ -423,7 +425,7 @@ function cssDiag(h){const inl=CSSL.filter(c=>c.on&&c.css.trim()&&!isUrlCss(c.css
   const common=CSSL.some(c=>c.on&&!isUrlCss(c.css)&&(/^(content|common|base|main|style|global|layout)\b|前台共用/i.test(c.name||'')||c.css.length>60000));return {missCls,missVar,hasUrl,common,hasInline:!!inl.trim(),look:!!getLook()}}
 function drawDiag(){const h=S?S.out:($('nxt').value.trim()?$('nxt').value:$('cur').value);const d=cssDiag(h);const any=CSSL.some(c=>c.on&&c.css.trim());
   const risky=any&&!d.hasUrl&&!d.look&&(d.missVar.length||(d.missCls.length&&!d.common));
-  const msg=risky?'<b>預覽可能和前台不一樣：</b>'+(d.missCls.length?'原始碼用到 '+d.missCls.length+' 個 class 在你給的 CSS 裡找不到（'+d.missCls.slice(0,8).map(esc).join('、')+(d.missCls.length>8?'…':'')+'）；':'')+(d.missVar.length?'CSS 用到沒定義的變數（'+d.missVar.slice(0,6).map(esc).join('、')+(d.missVar.length>6?'…':'')+'）；':'')+'這些通常在前台共用 CSS。請在「客製化 CSS」按「＋ 加入前台共用 CSS」，或用「讓預覽跟前台一樣」貼一次前台原始碼。':'';
+  const msg=risky?'<b>預覽可能和前台不一樣：</b>'+(d.missCls.length?'原始碼用到 '+d.missCls.length+' 個 class 在你給的 CSS 裡找不到（'+d.missCls.slice(0,8).map(esc).join('、')+(d.missCls.length>8?'…':'')+'）；':'')+(d.missVar.length?'CSS 用到沒定義的變數（'+d.missVar.slice(0,6).map(esc).join('、')+(d.missVar.length>6?'…':'')+'）；':'')+'這些通常在前台共用 CSS。請在「客製化 CSS」按「從前台頁面抓 CSS」，貼一次前台的 Ctrl+U 原始碼。':'';
   $('cssDiag').innerHTML=!any?'':risky?'<span class="bad">⚠</span> '+msg:(d.hasUrl||d.look?'<span class="ok">✓ 有載入前台共用 CSS'+(siteBase()?'':'（記得填前台網址）')+'。外部 CSS 要連得到網站才會載入。</span>':d.common?'<span class="ok">✓ 有前台共用 CSS。</span>'+(d.missCls.length?' 這些 class 在所有 CSS 裡都找不到：'+d.missCls.slice(0,8).map(esc).join('、')+'（前台如果也沒有樣式就沒關係）':''):'<span class="ok">✓ 原始碼用到的 class 都有定義。</span>');
   const w=$('pvWarn');if(risky){w.classList.remove('hidden');w.innerHTML=msg}else w.classList.add('hidden')}
 function cssText(){return CSSL.filter(c=>c.on&&c.css.trim()).map(c=>'/* '+String(c.name||'').replace(/\*\//g,'')+' */\n'+c.css.replace(/<\/style/gi,'<\\/style')).join('\n')}
@@ -440,6 +442,19 @@ $('cssList').addEventListener('change',e=>{const t=e.target;if(t.dataset.con!=nu
 $('cssList').addEventListener('click',e=>{const t=e.target;if(t.dataset.cdel!=null){CSSL.splice(+t.dataset.cdel,1);drawCss();cssChanged()}else if(t.dataset.cup!=null){const i=+t.dataset.cup;[CSSL[i-1],CSSL[i]]=[CSSL[i],CSSL[i-1]];drawCss();cssChanged()}});
 try{$('siteUrl').value=localStorage.getItem('cms-swap-site')||''}catch(e){}
 $('siteUrl').addEventListener('input',()=>{try{localStorage.setItem('cms-swap-site',$('siteUrl').value.trim())}catch(e){}CSSL.forEach((c,i)=>cssInfo(i));drawDiag();clearTimeout(cssT);cssT=setTimeout(refreshPreview,500)});
+$('cssPageBtn').addEventListener('click',()=>{$('cssPageBox').classList.toggle('hidden');if(!$('cssPageBox').classList.contains('hidden'))$('cssPageSrc').focus()});
+$('cssPageGo').addEventListener('click',()=>{const src=$('cssPageSrc').value;if(!/<link|<head|<html/i.test(src)){$('cssPageMsg').textContent='請貼上整頁原始碼（前台按 Ctrl+U，全選複製）';return}
+  const doc=new DOMParser().parseFromString(src,'text/html');let site=$('siteUrl').value.trim();
+  if(!/^https?:\/\//.test(site)){const c=doc.querySelector('link[rel=canonical],meta[property="og:url"]');const u=c&&(c.getAttribute('href')||c.getAttribute('content'));if(u&&/^https?:/.test(u)){site=new URL(u).origin}}
+  if(!/^https?:\/\//.test(site)){$('cssPageMsg').innerHTML='<span class="bad">原始碼裡看不出網址，請先在上面填前台網址再按一次</span>';return}
+  $('siteUrl').value=site;try{localStorage.setItem('cms-swap-site',site)}catch(e){}
+  const urls=[...doc.querySelectorAll('link[rel~=stylesheet][href]')].map(l=>{try{return new URL(l.getAttribute('href'),site.replace(/\/*$/,'/')).href}catch(e){return ''}}).filter(Boolean);
+  const inl=[...doc.querySelectorAll('style')].map(x=>x.textContent).filter(t=>t.trim()).join('\n');
+  if(!urls.length&&!inl){$('cssPageMsg').innerHTML='<span class="bad">這段原始碼裡沒有找到 CSS</span>';return}
+  CSSL=CSSL.filter(c=>!/^前台頁面的 CSS/.test(c.name||''));const add=[];if(urls.length)add.push({name:'前台頁面的 CSS（'+urls.length+' 個網址）',on:true,css:[...new Set(urls)].join('\n')});if(inl)add.push({name:'前台頁面的 CSS（頁面內嵌）',on:true,css:inl});
+  CSSL.unshift(...add);drawCss();cssChanged();$('cssPageSrc').value='';
+  $('cssPageMsg').innerHTML='<span class="ok">找到 '+urls.length+' 個 CSS 檔'+(inl?'和頁面內嵌樣式':'')+'，已加在最前面。</span>';
+  $('cssPageList').innerHTML='<p style="margin:6px 0 2px">要帶進 VDI 的話：點下面每個連結，在瀏覽器按 <kbd>Ctrl</kbd>+<kbd>S</kbd> 存成 .css 檔，用物流箱帶進去，再按「讀取 .css 檔」上傳（保持同樣順序）。</p><ol style="margin:0;padding-left:20px">'+[...new Set(urls)].map(u=>'<li><a href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(u)+'</a></li>').join('')+'</ol>'});
 $('cssCommon').addEventListener('click',()=>{if(!$('siteUrl').value.trim()){$('siteUrl').value='https://www.cca.gov.tw';$('siteUrl').dispatchEvent(new Event('input'))}CSSL.unshift({name:'前台共用 CSS',on:true,css:'/assets/css/content.css'});drawCss();cssChanged();notice('已加入前台共用 CSS（/assets/css/content.css），排在最前面（共用的要先載入，客製化的在後面才蓋得過去）。網址不一樣請直接改；VDI 沒網路時請改上傳 content.css 檔案。','ok')});
 $('cssAdd').addEventListener('click',()=>{CSSL.push({name:'CSS '+(CSSL.length+1),on:true,css:''});drawCss();const ts=document.querySelectorAll('[data-ccss]');ts[ts.length-1].focus()});
 $('cssFile').addEventListener('change',async e=>{const fs=[...e.target.files];for(const f of fs){const it={name:f.name,on:true,css:await f.text()};if(/^(content|common|base|main|style|global|layout)\b/i.test(f.name)){const k=CSSL.findIndex(c=>!/^(content|common|base|main|style|global|layout)\b|前台共用/i.test(c.name||''));CSSL.splice(k<0?CSSL.length:k,0,it)}else CSSL.push(it)}e.target.value='';drawCss();cssChanged();if(fs.length)notice('讀進 '+fs.length+' 份 CSS，預覽已套用。','ok')});
